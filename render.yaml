@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: lms-video-api
+    runtime: node
+    rootDir: video-api
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: FTP_HOST
+        sync: false
+      - key: FTP_PORT
+        value: 21
+      - key: FTP_USER
+        sync: false
+      - key: FTP_PASSWORD
+        sync: false
+      - key: FTP_SECURE
+        value: explicit
+      - key: FTP_REMOTE_DIR
+        value: /videos
