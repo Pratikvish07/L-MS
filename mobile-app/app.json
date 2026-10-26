@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Rayat Bahra University",
+    "slug": "lms",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "scheme": "lmsrecorder",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rayatbahrauniversity.lmsrecorder"
+    },
+    "android": {
+      "package": "com.rayatbahrauniversity.lmsrecorder",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/logo.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to record lecture video.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to record lecture audio.",
+          "recordAudioAndroid": true
+        }
+      ],
+      "expo-video"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "93ddd975-8000-4b16-a8b4-736e8d81a83c"
+      }
+    },
+    "owner": "pratikvish07"
+  }
+}
