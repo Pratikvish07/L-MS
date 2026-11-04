@@ -3,92 +3,22 @@ import type { AppUser } from '@/types/auth.types';
 import type { ActiveSession, CommandType, DeviceCommand, MountStatus, Pairing } from '@/types/pairing.types';
 import { createSessionId } from '@/utils/id';
 
-// Static demo pairing. The video file itself is still uploaded to the live API.
-const pairings = new Map<string, Pairing>();
-const codeMap = new Map<string, { mountUid: string; deviceName: string; expiresAt: number; used: boolean }>();
-const watchers = new Map<string, Set<(pairing: Pairing | null, fromCache: boolean) => void>>();
-const STORAGE_KEY = 'lms-static-pairings-v1';
-function storage() { return typeof globalThis !== 'undefined' && 'localStorage' in globalThis ? globalThis.localStorage : null; }
-function loadPairings() {
-  try { const raw = storage()?.getItem(STORAGE_KEY); if (raw) (JSON.parse(raw) as Pairing[]).forEach((pairing) => pairings.set(pairing.mountUid, pairing)); } catch { /* ignore invalid local demo data */ }
-}
-function savePairings() { try { storage()?.setItem(STORAGE_KEY, JSON.stringify([...pairings.values()])); } catch { /* native fallback remains in memory */ } }
-const emit = (mountUid: string) => { savePairings(); watchers.get(mountUid)?.forEach((listener) => listener(pairings.get(mountUid) ?? null, false)); };
-loadPairings();
+// Firebase Realtime Database REST transport. Video upload remains on the existing API.
+const root = `${config.firebaseDatabaseUrl}/lmsControl`;
+const path = (value: string) => encodeURIComponent(value);
+const url = (value: string) => `${root}/${value}.json?key=${encodeURIComponent(config.firebaseApiKey)}`;
+async function read<T>(key: string): Promise<T | null> { const response = await fetch(url(key)); if (!response.ok) throw new Error(`Firebase read failed (${response.status}).`); return response.json(); }
+async function write<T>(key: string, value: T): Promise<T> { const response = await fetch(url(key), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }); if (!response.ok) throw new Error(`Firebase write failed (${response.status}).`); return response.json(); }
 const pairingKey = (uid: string) => uid === 'faculty-pratik' ? 'mount-tripod101' : uid;
+const normalize = (value: Pairing | null) => value ? { ...value, mountStatus: value.mountStatus ?? null, command: value.command ?? null, session: value.session ?? null } : null;
 
-export async function createPairingCodeForMount(mount: AppUser, deviceName: string) {
-  const code = '101010';
-  const expiresAt = Date.now() + config.pairingCodeTtlSeconds * 1000;
-  codeMap.set(code, { mountUid: mount.uid, deviceName, expiresAt, used: false });
-  return { code, expiresAt };
-}
-export function deletePairingCode(code: string) { codeMap.delete(code); return Promise.resolve(); }
-export function subscribeToMountPairing(mountUid: string, onData: (p: Pairing | null, fromCache: boolean) => void, _onError: (e: Error) => void) {
-  const key = pairingKey(mountUid); const set = watchers.get(key) ?? new Set(); set.add(onData); watchers.set(key, set); onData(pairings.get(key) ?? null, false);
-  const timer = setInterval(() => { loadPairings(); onData(pairings.get(key) ?? null, false); }, 1000);
-  return () => { set.delete(onData); clearInterval(timer); };
-}
-export async function reportMountStatus(mountUid: string, status: MountStatus) {
-  const current = pairings.get(mountUid); if (!current) return;
-  pairings.set(mountUid, { ...current, mountStatus: status }); emit(mountUid);
-}
-export async function releaseSession(mountUid: string) { const current = pairings.get(mountUid); if (current) { pairings.set(mountUid, { ...current, session: null }); emit(mountUid); } }
-export async function claimPairingCode(faculty: AppUser, code: string): Promise<Pairing> {
-  // Static demo mode must validate across separate browser/device runtimes;
-  // an in-memory code map cannot be shared between the tripod and faculty.
-  const row = code === '101010'
-    ? (codeMap.get(code) ?? { mountUid: 'mount-tripod101', deviceName: 'Tripod Classroom 101', expiresAt: Date.now() + 60_000, used: false })
-    : codeMap.get(code);
-  if (!row || row.expiresAt <= Date.now()) throw new Error('That control code is invalid or expired.');
-  row.used = true;
-  const pairing: Pairing = { mountUid: row.mountUid, facultyUid: faculty.uid, facultyName: faculty.displayName, deviceName: row.deviceName, code, pairedAt: new Date().toISOString(), command: null, session: null, mountStatus: { state: 'preview', sessionId: '', lastSeen: Date.now(), freeBytes: 0, ackCommandId: '', ackResult: '', ackMessage: '', classroomId: 'classroom-101', classroomName: 'Tripod Classroom 101' } };
-  pairings.set(row.mountUid, pairing); emit(row.mountUid); return pairing;
-}
-export function subscribeToFacultyPairings(facultyUid: string, onData: (p: Pairing[]) => void, _onError: (e: Error) => void) {
-  const update = () => {
-    loadPairings();
-    // Keep the static demo usable after a page reload, when the in-memory
-    // pairing map has been cleared.
-    if (facultyUid === 'faculty-pratik' && ![...pairings.values()].some((p) => p.facultyUid === facultyUid)) {
-      pairings.set('mount-tripod101', { mountUid: 'mount-tripod101', facultyUid, facultyName: 'Pratik Vish', deviceName: 'Tripod Classroom 101', code: '101010', pairedAt: new Date().toISOString(), command: null, session: null, mountStatus: { state: 'preview', sessionId: '', lastSeen: Date.now(), freeBytes: 0, ackCommandId: '', ackResult: '', ackMessage: '', classroomId: 'classroom-101', classroomName: 'Tripod Classroom 101' } });
-      savePairings();
-    }
-    onData([...pairings.values()].filter((p) => p.facultyUid === facultyUid));
-  };
-  update(); const timer = setInterval(update, 1000); return () => clearInterval(timer);
-}
-export async function assignSession(mountUid: string, session: ActiveSession | null) {
-  const current = pairings.get(mountUid);
-  if (current) {
-    pairings.set(mountUid, {
-      ...current,
-      session,
-      mountStatus: current.mountStatus ? { ...current.mountStatus, sessionId: session?.sessionId ?? '', state: session ? 'preview' : 'idle', lastSeen: Date.now() } : current.mountStatus,
-    });
-    emit(mountUid);
-  }
-}
-export async function sendCommand(faculty: AppUser, mountUid: string, type: CommandType, sessionId: string): Promise<DeviceCommand> {
-  const command = { id: createSessionId(), type, sessionId, issuedBy: faculty.uid, issuedAt: Date.now() } as DeviceCommand;
-  const current = pairings.get(mountUid);
-  if (current) {
-    const status = current.mountStatus ?? { state: 'preview', sessionId: '', lastSeen: Date.now(), freeBytes: 0, ackCommandId: '', ackResult: '', ackMessage: '', classroomId: 'classroom-101', classroomName: 'Tripod Classroom 101' };
-    pairings.set(mountUid, {
-      ...current,
-      command,
-      mountStatus: {
-        ...status,
-        state: type === 'start' ? 'recording' : type === 'stop' ? 'uploading' : status.state,
-        sessionId,
-        lastSeen: Date.now(),
-        ackCommandId: command.id,
-        ackResult: 'ok',
-        ackMessage: '',
-      },
-    });
-    emit(mountUid);
-  }
-  return command;
-}
-export async function unpair(mountUid: string) { pairings.delete(mountUid); emit(mountUid); }
+export async function createPairingCodeForMount(mount: AppUser, deviceName: string) { const code = String(Math.floor(100000 + Math.random() * 900000)); const expiresAt = Date.now() + config.pairingCodeTtlSeconds * 1000; await write(`codes/${path(code)}`, { mountUid: mount.uid, deviceName, expiresAt, used: false }); return { code, expiresAt }; }
+export function deletePairingCode(code: string) { return write(`codes/${path(code)}`, null); }
+export function subscribeToMountPairing(mountUid: string, onData: (p: Pairing | null, fromCache: boolean) => void, onError: (e: Error) => void) { const key = pairingKey(mountUid); let stopped = false; const poll = async () => { try { if (!stopped) onData(normalize(await read<Pairing>(`pairings/${path(key)}`)), false); } catch (e) { if (!stopped) onError(e instanceof Error ? e : new Error('Firebase pairing read failed.')); } }; void poll(); const timer = setInterval(poll, 1500); return () => { stopped = true; clearInterval(timer); }; }
+export async function reportMountStatus(mountUid: string, status: MountStatus) { const key = pairingKey(mountUid); const current = await read<Pairing>(`pairings/${path(key)}`); if (current) await write(`pairings/${path(key)}/mountStatus`, status); }
+export async function releaseSession(mountUid: string) { await write(`pairings/${path(pairingKey(mountUid))}/session`, null); }
+export async function claimPairingCode(faculty: AppUser, code: string): Promise<Pairing> { const row = await read<{ mountUid: string; deviceName: string; expiresAt: number; used: boolean }>(`codes/${path(code)}`); if (!row || row.used || row.expiresAt <= Date.now()) throw new Error('That control code is invalid or expired.'); const pairing: Pairing = { mountUid: row.mountUid, facultyUid: faculty.uid, facultyName: faculty.displayName, deviceName: row.deviceName, code, pairedAt: new Date().toISOString(), command: null, session: null, mountStatus: { state: 'preview', sessionId: '', lastSeen: Date.now(), freeBytes: 0, ackCommandId: '', ackResult: '', ackMessage: '', classroomId: 'classroom-101', classroomName: row.deviceName } }; await write(`codes/${path(code)}/used`, true); await write(`pairings/${path(row.mountUid)}`, pairing); return pairing; }
+export function subscribeToFacultyPairings(facultyUid: string, onData: (p: Pairing[]) => void, onError: (e: Error) => void) { let stopped = false; const poll = async () => { try { const value = await read<Record<string, Pairing>>('pairings'); if (!stopped) onData(Object.values(value ?? {}).filter((item) => item.facultyUid === facultyUid).map(normalize).filter(Boolean) as Pairing[]); } catch (e) { if (!stopped) onError(e instanceof Error ? e : new Error('Firebase pairing read failed.')); } }; void poll(); const timer = setInterval(poll, 1500); return () => { stopped = true; clearInterval(timer); }; }
+export async function assignSession(mountUid: string, session: ActiveSession | null) { await write(`pairings/${path(pairingKey(mountUid))}/session`, session); }
+export async function sendCommand(faculty: AppUser, mountUid: string, type: CommandType, sessionId: string): Promise<DeviceCommand> { const command: DeviceCommand = { id: createSessionId(), type, sessionId, issuedBy: faculty.uid, issuedAt: Date.now() }; await write(`pairings/${path(pairingKey(mountUid))}/command`, command); return command; }
+export async function unpair(mountUid: string) { await write(`pairings/${path(pairingKey(mountUid))}`, null); }

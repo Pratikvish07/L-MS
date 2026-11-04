@@ -8,6 +8,8 @@ function readNumber(value: string | undefined, fallback: number): number {
 export const config = {
   videoApiBaseUrl: (process.env.EXPO_PUBLIC_VIDEO_API_BASE_URL ?? 'https://nvqf.vocmanindia.com').replace(/\/$/, ''),
   videoUploadUrl: `${(process.env.EXPO_PUBLIC_VIDEO_API_BASE_URL ?? 'https://nvqf.vocmanindia.com').replace(/\/$/, '')}/api/videos`,
+  firebaseDatabaseUrl: (process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL ?? 'https://lmsmodule-20d97-default-rtdb.asia-southeast1.firebasedatabase.app').replace(/\/$/, ''),
+  firebaseApiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? 'AIzaSyAlWYrg9feqgMBsCHcC61g_QlWMVWvssQY',
   maxVideoUploadBytes: 100 * 1024 * 1024,
   pairingCodeTtlSeconds: readNumber(process.env.EXPO_PUBLIC_PAIRING_CODE_TTL_SECONDS, 30),
 } as const;

@@ -17,6 +17,7 @@
         "buildType": "apk"
       }
     },
+    
     "production": {
       "autoIncrement": true
     }
@@ -25,3 +26,4 @@
     "production": {}
   }
 }
+
