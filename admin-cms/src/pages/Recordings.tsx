@@ -58,7 +58,7 @@ export function RecordingsPage() {
     setBusy(true);
     setError('');
     try {
-      await deleteApiVideo(String(video.id));
+      await deleteApiVideo(video.slug ?? '');
       await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Video delete failed.');
@@ -72,7 +72,7 @@ export function RecordingsPage() {
     setBusy(true);
     setError('');
     try {
-      await updateApiVideo(String(editing.id), editTitle.trim(), editFile);
+      await updateApiVideo(editing.slug ?? '', editTitle.trim(), editFile);
       setEditing(null);
       await refresh();
     } catch (cause) {

@@ -1,35 +1,101 @@
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import type { AppUser } from '@/types/auth.types';
-import type { LectureMetadata, Recording, RecordingStatus } from '@/types/recording.types';
+import type { LectureMetadata, LectureNote, Recording, RecordingStatus } from '@/types/recording.types';
+import { toIso } from '@/utils/date';
 import { createSessionId } from '@/utils/id';
+import { firestore } from './firebase';
 
-const records = new Map<string, Recording>();
-const listeners = new Map<string, Set<(recording: Recording | null) => void>>();
+type Row = Record<string, any>;
 const now = () => new Date().toISOString();
-const STORAGE_KEY = 'lms-static-recordings-v1';
-try {
-  const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
-  if (raw) (JSON.parse(raw) as Recording[]).forEach((recording) => records.set(recording.id, recording));
-} catch { /* native storage may not be available */ }
-const persist = () => { try { if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, JSON.stringify([...records.values()])); } catch { /* keep native in-memory fallback */ } };
-const notify = (id: string) => listeners.get(id)?.forEach((listener) => listener(records.get(id) ?? null));
+
+export function mapRecording(data: Row): Recording {
+  const id = String(data.id ?? data.sessionId ?? '');
+  return {
+    id,
+    sessionId: String(data.sessionId ?? id),
+    facultyUid: String(data.facultyUid ?? ''),
+    mountUid: String(data.mountUid ?? ''),
+    classroomId: String(data.classroomId ?? ''),
+    classroomName: String(data.classroomName ?? data.classroomId ?? ''),
+    facultyId: String(data.facultyId ?? ''),
+    facultyName: String(data.facultyName ?? ''),
+    degreeId: String(data.degreeId ?? ''),
+    degreeName: String(data.degreeName ?? ''),
+    streamId: String(data.streamId ?? ''),
+    streamName: String(data.streamName ?? ''),
+    year: Number(data.year ?? 0),
+    batchId: String(data.batchId ?? ''),
+    batchName: String(data.batchName ?? ''),
+    subjectId: String(data.subjectId ?? ''),
+    subjectName: String(data.subjectName ?? ''),
+    courseId: String(data.courseId ?? data.subjectId ?? ''),
+    courseName: String(data.courseName ?? data.subjectName ?? ''),
+    className: String(data.className ?? ''),
+    chapter: String(data.chapter ?? ''),
+    topic: String(data.topic ?? ''),
+    lectureNumber: String(data.lectureNumber ?? ''),
+    recordedAt: toIso(data.recordedAt),
+    durationSeconds: Number(data.durationSeconds ?? 0),
+    fileSizeBytes: Number(data.fileSizeBytes ?? 0),
+    partFileIds: Array.isArray(data.partFileIds) ? data.partFileIds.map(String) : [],
+    videoApiId: String(data.videoApiId ?? ''),
+    thumbnailFileId: String(data.thumbnailFileId ?? ''),
+    mimeType: String(data.mimeType ?? ''),
+    status: (data.status ?? 'ready') as RecordingStatus,
+    publicationStatus: data.publicationStatus === 'published' ? 'published' : 'unpublished',
+    uploadProgress: Number(data.uploadProgress ?? 0),
+    errorMessage: String(data.errorMessage ?? ''),
+    notes: String(data.notes ?? ''),
+    lectureNotes: Array.isArray(data.lectureNotes) ? (data.lectureNotes as LectureNote[]) : [],
+    startedAt: toIso(data.startedAt),
+    endedAt: toIso(data.endedAt),
+    uploadedAt: toIso(data.uploadedAt),
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt),
+  };
+}
 
 export async function createRecordingSession(faculty: AppUser, mountUid: string, lecture: Omit<LectureMetadata, 'facultyId' | 'facultyName'>) {
   const sessionId = createSessionId();
-  const metadata = { ...lecture, facultyId: faculty.facultyId || faculty.uid, facultyName: faculty.displayName };
-  records.set(sessionId, { ...metadata, id: sessionId, sessionId, facultyUid: faculty.uid, mountUid, durationSeconds: 0, fileSizeBytes: 0, partFileIds: [], thumbnailFileId: '', mimeType: '', status: 'ready', publicationStatus: 'unpublished', uploadProgress: 0, errorMessage: '', notes: '', startedAt: '', endedAt: '', uploadedAt: '', createdAt: now(), updatedAt: now() }); persist();
+  const metadata: LectureMetadata = { ...lecture, facultyId: faculty.facultyId || faculty.uid, facultyName: faculty.displayName };
+  await setDoc(doc(firestore, 'recordings', sessionId), {
+    ...metadata, courseId: metadata.courseId || metadata.subjectId, courseName: metadata.courseName || metadata.subjectName, sessionId, lectureNotes: [], facultyUid: faculty.uid, mountUid,
+    status: 'ready', publicationStatus: 'unpublished', uploadProgress: 0,
+    durationSeconds: 0, fileSizeBytes: 0, partFileIds: [], createdAt: now(), updatedAt: now(),
+  });
   return { sessionId, metadata };
 }
-export async function discardReadySession(sessionId: string) { records.delete(sessionId); persist(); notify(sessionId); }
-export function subscribeToFacultyRecordings(facultyUid: string, onData: (rows: Recording[]) => void, _onError: (error: Error) => void) { const update = () => onData([...records.values()].filter((r) => r.facultyUid === facultyUid)); update(); const timer = setInterval(update, 1000); return () => clearInterval(timer); }
-/** Student library: uploaded lectures for one degree, stream and year. */
-export function subscribeToClassRecordings(degreeId: string, streamId: string, year: number, onData: (rows: Recording[]) => void, _onError: (error: Error) => void) { const update = () => onData([...records.values()].filter((r) => (r.status === 'uploaded' || r.status === 'published') && r.degreeId === degreeId && r.streamId === streamId && r.year === year).sort((a, b) => b.recordedAt.localeCompare(a.recordedAt))); update(); const timer = setInterval(update, 1000); return () => clearInterval(timer); }
-export function subscribeToRecording(sessionId: string, onData: (recording: Recording | null) => void, _onError: (error: Error) => void) { const set = listeners.get(sessionId) ?? new Set(); set.add(onData); listeners.set(sessionId, set); onData(records.get(sessionId) ?? null); return () => { set.delete(onData); }; }
-async function updateRecording(sessionId: string, data: Partial<Recording>) { const current = records.get(sessionId); if (!current) return; records.set(sessionId, { ...current, ...data, updatedAt: now() }); persist(); notify(sessionId); }
-export const markRecordingStarted = (id: string) => updateRecording(id, { status: 'recording', startedAt: now(), errorMessage: '' });
-export const markRecordingAborted = (id: string, errorMessage: string) => updateRecording(id, { status: 'ready', errorMessage: errorMessage.slice(0, 500) });
-export const markSavedLocally = (id: string, durationSeconds: number, fileSizeBytes: number) => updateRecording(id, { status: 'saved_locally', durationSeconds: Math.round(durationSeconds), fileSizeBytes, endedAt: now(), uploadProgress: 0 });
-export const markUploading = (id: string) => updateRecording(id, { status: 'uploading', uploadProgress: 0, errorMessage: '' });
-export const setUploadProgress = (id: string, uploadProgress: number) => updateRecording(id, { uploadProgress });
-export const markUploaded = (id: string, fields: { partFileIds: string[]; thumbnailFileId: string; fileSizeBytes: number; mimeType: string; videoApiId?: string }) => updateRecording(id, { ...fields, status: 'uploaded', uploadProgress: 100, uploadedAt: now(), errorMessage: '' });
-export const markPending = (id: string) => updateRecording(id, { status: 'saved_locally', uploadProgress: 0 });
-export const markFailed = (id: string, errorMessage: string) => updateRecording(id, { status: 'failed', errorMessage: errorMessage.slice(0, 500) });
+
+export function discardReadySession(sessionId: string) { return deleteDoc(doc(firestore, 'recordings', sessionId)); }
+
+export function subscribeToFacultyRecordings(facultyUid: string, onData: (recordings: Recording[]) => void, onError: (error: Error) => void) {
+  return onSnapshot(query(collection(firestore, 'recordings'), where('facultyUid', '==', facultyUid)), (snapshot) => {
+    onData(snapshot.docs.map((item) => mapRecording({ ...item.data(), id: item.id })).sort((a, b) => b.recordedAt.localeCompare(a.recordedAt)));
+  }, onError);
+}
+
+/** Published lectures of the student's course + batch (the same check the Firestore rules make). */
+export function subscribeToClassRecordings(courseId: string, batchId: string, onData: (recordings: Recording[]) => void, onError: (error: Error) => void) {
+  const recordingsQuery = query(collection(firestore, 'recordings'), where('publicationStatus', '==', 'published'), where('courseId', '==', courseId), where('batchId', '==', batchId));
+  return onSnapshot(recordingsQuery, (snapshot) => onData(snapshot.docs.map((item) => mapRecording({ ...item.data(), id: item.id })).sort((a, b) => b.recordedAt.localeCompare(a.recordedAt))), onError);
+}
+
+export function subscribeToRecording(sessionId: string, onData: (recording: Recording | null) => void, onError: (error: Error) => void) {
+  return onSnapshot(doc(firestore, 'recordings', sessionId), (snapshot) => onData(snapshot.exists() ? mapRecording({ ...snapshot.data(), id: snapshot.id }) : null), onError);
+}
+
+function updateRecording(sessionId: string, data: Record<string, unknown>) {
+  return updateDoc(doc(firestore, 'recordings', sessionId), { ...data, updatedAt: now() });
+}
+
+export const markRecordingStarted = (sessionId: string) => updateRecording(sessionId, { status: 'recording', startedAt: now(), errorMessage: null });
+export const markRecordingAborted = (sessionId: string, errorMessage: string) => updateRecording(sessionId, { status: 'ready', errorMessage: errorMessage.slice(0, 500) });
+export const markSavedLocally = (sessionId: string, durationSeconds: number, fileSizeBytes: number) => updateRecording(sessionId, { status: 'saved_locally', durationSeconds: Math.round(durationSeconds), fileSizeBytes, endedAt: now(), uploadProgress: 0 });
+export const markUploading = (sessionId: string) => updateRecording(sessionId, { status: 'uploading', uploadProgress: 0, errorMessage: null });
+export const setUploadProgress = (sessionId: string, uploadProgress: number) => updateRecording(sessionId, { uploadProgress });
+
+export function markUploaded(sessionId: string, fields: { partFileIds: string[]; thumbnailFileId: string; fileSizeBytes: number; mimeType: string; videoApiId?: string }) {
+  return updateRecording(sessionId, { partFileIds: fields.partFileIds, ...(fields.videoApiId ? { videoApiId: fields.videoApiId } : {}), thumbnailFileId: fields.thumbnailFileId || '', fileSizeBytes: fields.fileSizeBytes, mimeType: fields.mimeType, status: 'uploaded', uploadProgress: 100, uploadedAt: now(), errorMessage: null, publicationStatus: 'published', publishedAt: now() });
+}
+export const markPending = (sessionId: string) => updateRecording(sessionId, { status: 'saved_locally', uploadProgress: 0 });
+export const markFailed = (sessionId: string, errorMessage: string) => updateRecording(sessionId, { status: 'failed', errorMessage: errorMessage.slice(0, 500) });

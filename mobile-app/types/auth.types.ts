@@ -1,5 +1,6 @@
 /**
- * Roles come from the static accounts in constants/static-users.ts.
+ * Roles and approval status are stored in the Firestore users/{uid} profile.
+ * Students get courseId/courseName/batchId/batchName when an admin enrols them.
  * "mount" is a dedicated account signed in on the tripod phone.
  */
 export type UserRole = 'faculty' | 'admin' | 'mount' | 'student';
@@ -13,6 +14,8 @@ export interface AppUser {
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   facultyId?: string;
   subject?: string;
+  courseId?: string;
+  courseName?: string;
   photoURL?: string;
   /** Mount devices only: the classroom this tripod is locked to. */
   classroomId?: string;

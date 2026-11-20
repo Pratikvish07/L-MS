@@ -326,7 +326,7 @@ export default function CameraPreviewScreen() {
         dark
         title={user.classroomName || 'Mount Device'}
         accessory={
-          <View style={[styles.badge, { backgroundColor: connected ? 'rgba(14,159,110,0.2)' : 'rgba(224,36,36,0.2)' }]}>
+          <View style={[styles.badge, { backgroundColor: connected ? 'rgba(109,40,217,0.28)' : 'rgba(224,36,36,0.2)' }]}>
             <View style={[styles.badgeDot, { backgroundColor: connected ? colors.primary : colors.red }]} />
             <Text style={[styles.badgeText, { color: connected ? '#34D399' : '#F87171' }]}>
               {connected ? 'Connected' : 'Offline'}

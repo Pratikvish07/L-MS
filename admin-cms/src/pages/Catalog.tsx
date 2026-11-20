@@ -6,7 +6,7 @@ import { Academics, BatchManagement } from '../components/Academics';
 import { PageHead } from '../components/Layout';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { Pill } from '../components/ui';
-import { deleteClassroom, saveClassroom } from '../lib/data';
+import { deleteClassroom, saveClassroom } from '../lib/firebase-data';
 import { useStore } from '../lib/store';
 import type { Classroom } from '../lib/types';
 
@@ -81,11 +81,11 @@ export function CatalogPage({ tab }: { tab: 'classrooms' | 'subjects' }) {
   return (
     <>
       <PageHead
-        title={tab === 'classrooms' ? 'Classrooms' : 'Degrees, Streams & Subjects'}
+        title={tab === 'classrooms' ? 'Classrooms' : 'School Subjects'}
         subtitle={
           tab === 'classrooms'
             ? 'Rooms where lectures are recorded'
-            : 'Degree → stream → year → subjects with assigned faculty. Faculty choose from these when recording.'
+            : 'Manage degrees, streams, years, and school subjects with assigned faculty.'
         }
       >
         <div className="seg" role="tablist">
@@ -93,7 +93,7 @@ export function CatalogPage({ tab }: { tab: 'classrooms' | 'subjects' }) {
             Classrooms
           </button>
           <button role="tab" aria-selected={tab === 'subjects'} className={tab === 'subjects' ? 'active' : ''} onClick={() => navigate('/subjects')}>
-            Academics
+            School Subjects
           </button>
         </div>
         {tab === 'classrooms' && (

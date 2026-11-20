@@ -8,6 +8,7 @@ import { ErrorBanner } from '@/components/common/ErrorBanner';
 import { LoadingView } from '@/components/common/LoadingView';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { AppHeader } from '@/components/layout/AppHeader';
+import { LectureNotesCard } from '@/components/recording/LectureNotesCard';
 import { RecordingTimer } from '@/components/recording/RecordingTimer';
 import { UploadProgress } from '@/components/recording/UploadProgress';
 import { colors, radius } from '@/constants/theme';
@@ -111,7 +112,7 @@ export default function RecordingDetailsScreen() {
 
   return (
     <View style={styles.screen}>
-      <AppHeader title="Recording" left={{ icon: 'arrow-back', label: 'Back', onPress: () => goBack('/recordings') }} />
+      <AppHeader title="Lecture" left={{ icon: 'arrow-back', label: 'Back', onPress: () => goBack('/recordings') }} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.card}>
           <Text style={styles.topic}>{recording.topic}</Text>
@@ -123,7 +124,7 @@ export default function RecordingDetailsScreen() {
           {recording.status === 'ready' && (
             <>
               <Text style={styles.help}>
-                'Faculty camera is ready.'
+                Ready. Press Start to begin recording; press Stop when the class ends.
               </Text>
               <AppButton
                 title={awaitingAck ? 'Waiting for mount phone…' : 'Start Recording'}
@@ -177,7 +178,7 @@ export default function RecordingDetailsScreen() {
 
           {(recording.status === 'uploaded' || recording.status === 'published') && (
             <View style={styles.success}>
-              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+              <Ionicons name="checkmark-circle" size={22} color={colors.green} />
               <Text style={styles.successText}>Uploaded {formatDateTime(recording.uploadedAt)}</Text>
             </View>
           )}
@@ -189,13 +190,16 @@ export default function RecordingDetailsScreen() {
           {actionError && <ErrorBanner message={actionError} />}
         </View>
 
+        <LectureNotesCard recording={recording} uploadedBy={user.uid} />
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Details</Text>
-          <DetailRow icon="easel-outline" label="Classroom" value={recording.classroomName} />
-          <DetailRow icon="people-outline" label="Class" value={recording.className} />
-          {recording.subjectName ? <DetailRow icon="library-outline" label="Subject" value={recording.subjectName} /> : null}
-          <DetailRow icon="book-outline" label="Chapter" value={recording.chapter} />
-          <DetailRow icon="pricetag-outline" label="Topic" value={recording.topic} />
+          <DetailRow icon="school-outline" label="Course" value={recording.courseName} />
+          <DetailRow icon="people-outline" label="Batch" value={recording.batchName} />
+          <DetailRow icon="library-outline" label="Subject" value={recording.subjectName} />
+          <DetailRow icon="pricetag-outline" label="Lecture" value={recording.lectureNumber ? `${recording.lectureNumber}. ${recording.topic}` : recording.topic} />
+          <DetailRow icon="cloud-outline" label="Video" value={recording.status === 'uploaded' || recording.status === 'published' ? 'Uploaded' : 'Not uploaded'} />
+          {recording.classroomName ? <DetailRow icon="easel-outline" label="Classroom" value={recording.classroomName} /> : null}
           <DetailRow icon="calendar-outline" label="Lecture date" value={formatDateTime(recording.recordedAt)} />
           <DetailRow
             icon="time-outline"
@@ -227,7 +231,7 @@ const styles = StyleSheet.create({
   help: { fontSize: 14, color: colors.textMuted, textAlign: 'center' },
   timerWrap: { alignItems: 'center', gap: 8, paddingVertical: 8 },
   success: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  successText: { fontSize: 14, color: colors.primaryDark, fontWeight: '600' },
+  successText: { fontSize: 14, color: colors.green, fontWeight: '600' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   detailLabel: { width: 100, fontSize: 13, color: colors.textMuted },

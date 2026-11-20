@@ -3,14 +3,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { colors, radius } from '@/constants/theme';
-import type { Recording } from '@/types/recording.types';
+import { UPLOADED_STATUSES, type Recording } from '@/types/recording.types';
 import { formatDateTime, formatDuration } from '@/utils/date';
 
 export function RecordingCard({ recording, onPress }: { recording: Recording; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${recording.topic}, ${recording.className}, ${recording.classroomName}`}
+      accessibilityLabel={`${recording.topic}, ${recording.subjectName}, ${UPLOADED_STATUSES.includes(recording.status) ? 'uploaded' : 'not uploaded'}`}
       accessibilityHint="Opens recording details"
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
@@ -20,14 +20,15 @@ export function RecordingCard({ recording, onPress }: { recording: Recording; on
       </View>
       <View style={{ flex: 1, gap: 4 }}>
         <Text numberOfLines={1} style={styles.title}>
-          {recording.topic}
+          {recording.lectureNumber ? `${recording.lectureNumber}. ` : ''}{recording.topic}
         </Text>
         <Text numberOfLines={1} style={styles.meta}>
-          {recording.className} · {recording.classroomName} · {recording.chapter}
+          {[recording.courseName, recording.batchName, recording.subjectName].filter(Boolean).join(' · ') || recording.className}
         </Text>
         <View style={styles.footer}>
           <Text style={styles.meta}>{formatDateTime(recording.recordedAt)}</Text>
           {recording.durationSeconds > 0 && <Text style={styles.meta}>· {formatDuration(recording.durationSeconds)}</Text>}
+          {recording.lectureNotes.length > 0 && <Text style={styles.meta}>· {recording.lectureNotes.length} notes</Text>}
         </View>
         <StatusBadge status={recording.status} progress={recording.uploadProgress} />
       </View>

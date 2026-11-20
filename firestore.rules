@@ -1,0 +1,116 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function adminPath() { return /databases/$(database)/documents/admins/$(request.auth.uid); }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function isAdmin() {
+      return signedIn() && exists(adminPath())
+        && get(adminPath()).data.role == 'admin'
+        && get(adminPath()).data.isActive == true;
+    }
+    function isActive() {
+      return signedIn() && (isAdmin() || (exists(userPath()) && get(userPath()).data.active != false));
+    }
+    function isStudent() { return isActive() && exists(userPath()) && get(userPath()).data.role == 'student'; }
+    // Faculty and mount phones: the only roles that pair devices and write recordings.
+    function isStaff() { return isActive() && exists(userPath()) && get(userPath()).data.role in ['faculty', 'mount']; }
+    function enrollmentPath(courseId) { return /databases/$(database)/documents/enrollments/$(request.auth.uid + '_' + courseId); }
+    // A student sees a lecture only if it is published and they are enrolled in that course AND batch.
+    function studentOwnsRecording() {
+      return resource.data.publicationStatus == 'published'
+        && exists(enrollmentPath(resource.data.courseId))
+        && get(enrollmentPath(resource.data.courseId)).data.status == 'approved'
+        && get(enrollmentPath(resource.data.courseId)).data.batchId == resource.data.batchId;
+    }
+
+    match /admins/{uid} {
+      allow read: if signedIn() && (uid == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+    function pendingStudent(uid) {
+      return request.resource.data.uid == uid
+        && request.resource.data.role == 'student'
+        && request.resource.data.active == false
+        && request.resource.data.approvalStatus == 'pending';
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (uid == request.auth.uid || isAdmin());
+      allow create: if isAdmin() || (signedIn() && uid == request.auth.uid && pendingStudent(uid));
+      allow update: if isAdmin() || (signedIn() && uid == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'phone', 'lastActiveAt']));
+      allow delete: if isAdmin();
+    }
+
+    match /degrees/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /streams/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /subjects/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /classrooms/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /batches/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /roles/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /chapters/{id} { allow read: if isActive(); allow write: if isActive(); }
+    match /courses/{id} { allow read: if isAdmin() || resource.data.status == 'published' || resource.data.status == 'active'; allow write: if isAdmin(); }
+    match /quizzes/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    // Tests and assignments per subject. MCQs hold the correct answers, so students cannot read them directly.
+    match /assessments/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+      match /questions/{questionId} { allow read: if isAdmin() || isStaff(); allow write: if isAdmin(); }
+      // Student copy of the MCQs without correct answers.
+      match /paper/{paperId} { allow read: if isActive(); allow write: if isAdmin(); }
+    }
+    // Marks, ID = `${assessmentId}_${studentUid}`. Students read only their own.
+    match /marks/{id} {
+      allow read: if isAdmin() || isStaff() || (signedIn() && resource.data.studentUid == request.auth.uid);
+      allow write: if isAdmin();
+    }
+    function ownSubmission(id) {
+      return isStudent() && request.resource.data.studentUid == request.auth.uid
+        && id == request.resource.data.assessmentId + '_' + request.auth.uid
+        && !exists(/databases/$(database)/documents/marks/$(id));
+    }
+    // Student answers / uploaded files, ID = `${assessmentId}_${studentUid}`. Students write only their own.
+    match /submissions/{id} {
+      allow read: if isAdmin() || isStaff() || (signedIn() && resource.data.studentUid == request.auth.uid);
+      allow create: if ownSubmission(id);
+      // Files can be added until marked; quiz answers cannot change once submitted.
+      allow update: if ownSubmission(id) && (!('answers' in resource.data) || request.resource.data.answers == resource.data.answers);
+      allow delete: if isAdmin();
+    }
+    // Student asks to join a course from the app, ID = `${studentUid}_${courseId}`. The admin approves into a batch.
+    match /enrollmentRequests/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.studentUid == request.auth.uid);
+      allow create: if isStudent() && request.resource.data.studentUid == request.auth.uid && request.resource.data.status == 'pending'
+        && id == request.auth.uid + '_' + request.resource.data.courseId;
+      allow update, delete: if isAdmin();
+    }
+    // Written by admins from the Course → Batch page. ID = `${studentUid}_${courseId}`.
+    match /enrollments/{id} { allow read: if isAdmin() || (signedIn() && resource.data.studentUid == request.auth.uid); allow create, update, delete: if isAdmin(); }
+    // Coupons (ID = code). Students can read them (shown on their dashboard); only admins change them.
+    match /coupons/{code} { allow read: if isActive(); allow write: if isAdmin(); }
+    // Purchase ID counters (counters/purchase-<year>).
+    match /counters/{id} { allow read, write: if isAdmin(); }
+    match /notifications/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /websiteContent/{id} { allow read: if isAdmin() || resource.data.status == 'published'; allow write: if isAdmin(); }
+    match /pairingCodes/{id} { allow read, write: if isAdmin() || isStaff(); }
+    match /pairings/{id} { allow read, write: if isAdmin() || isStaff(); }
+    match /recordings/{id} {
+      allow read: if isActive() && (!isStudent() || studentOwnsRecording());
+      allow write: if isActive() && !isStudent();
+    }
+
+    // Admin edits to videos that have no recordings/{id} row yet (admin-cms firebase-data.ts).
+    // Student lecture tracking, ID = `${studentUid}_${recordingId}`. Students write their own; admins read all.
+    match /lectureViews/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.studentUid == request.auth.uid);
+      allow create, update: if isStudent() && request.resource.data.studentUid == request.auth.uid && id == request.auth.uid + '_' + request.resource.data.recordingId;
+      allow delete: if isAdmin();
+    }
+    match /recordingEdits/{id} { allow read, write: if isAdmin(); }
+    match /mediaAssets/{id} { allow read, write: if isAdmin(); }
+
+    match /adminModules/{moduleId}/items/{itemId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

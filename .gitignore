@@ -1,4 +1,11 @@
 # Each app has its own .gitignore (mobile-app/, admin-cms/).
+node_modules/
+Website/node_modules/
+admin-cms/node_modules/
+mobile-app/node_modules/
+*.local
+*.tmp
+~$*
 
 # OS / editor
 .DS_Store
@@ -8,3 +15,4 @@ Thumbs.db
 video-api/.env
 video-api/service-account.json
 video-api/uploads/
+functions/node_modules/

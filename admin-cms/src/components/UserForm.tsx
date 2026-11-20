@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { createUser, updateUser } from '../lib/data';
+import { createUser, updateUser } from '../lib/firebase-data';
 import { useStore } from '../lib/store';
 import type { AppUser, UserRole } from '../lib/types';
 import { Modal } from './Modal';
@@ -29,6 +29,8 @@ export function UserForm({ user, fixedRole, currentUid, onClose }: UserFormProps
   const { classrooms, users, degrees, streams, batches } = useStore();
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
+  const [phone, setPhone] = useState(user?.phone ?? '');
+  const [gender, setGender] = useState(user?.gender ?? '');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>(user?.role ?? fixedRole ?? 'faculty');
   const [facultyId, setFacultyId] = useState(user?.facultyId ?? '');
@@ -89,6 +91,8 @@ export function UserForm({ user, fixedRole, currentUid, onClose }: UserFormProps
       if (user) {
         await updateUser(user.uid, {
           displayName: displayName.trim(),
+          phone: phone.trim(),
+          gender,
           role,
           active,
           facultyId: facultyId.trim(),
@@ -102,7 +106,7 @@ export function UserForm({ user, fixedRole, currentUid, onClose }: UserFormProps
           ...studentClassroomFields,
         });
       } else {
-        await createUser({ email, password, displayName, role, facultyId: selectedFacultyId, subject, degreeId, streamId, year, batchId, batchName, ...roomFields, ...studentClassroomFields });
+        await createUser({ email, password, displayName, phone, gender, role, facultyId: selectedFacultyId, subject, degreeId, streamId, year, batchId, batchName, ...roomFields, ...studentClassroomFields });
       }
       onClose();
     } catch (e) {
@@ -138,6 +142,20 @@ export function UserForm({ user, fixedRole, currentUid, onClose }: UserFormProps
           <span>Email</span>
           <input className="input" type="email" value={email} disabled={!!user} onChange={(e) => setEmail(e.target.value)} />
         </label>
+        <label className="field">
+          <span>Phone</span>
+          <input className="input" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </label>
+        {role === 'student' && <label className="field">
+          <span>Gender</span>
+          <select className="input" value={gender} onChange={(e) => setGender(e.target.value)}>
+            <option value="">Select gender</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="other">Other</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </select>
+        </label>}
         {!user && (
           <label className="field full">
             <span>Temporary password</span>
@@ -207,7 +225,7 @@ export function UserForm({ user, fixedRole, currentUid, onClose }: UserFormProps
         <div className="notice">Sign in with this account on the tripod phone. It can only pair, record and upload.</div>
       )}
       {!user && (
-        <div className="cell-sub">Share the temporary password securely. Users and edits are saved in this browser only.</div>
+        <div className="cell-sub">Share the temporary password securely. Account profiles are stored in Firebase.</div>
       )}
     </Modal>
   );

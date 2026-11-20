@@ -6,7 +6,7 @@ import { PageHead } from '../components/Layout';
 import { ConfirmDialog } from '../components/Modal';
 import { Avatar, Pill } from '../components/ui';
 import { UserForm } from '../components/UserForm';
-import { approveStudent, createUser, deleteUserProfile } from '../lib/data';
+import { approveStudent, createUser, deleteUserProfile } from '../lib/firebase-data';
 import { yearLabel } from '../lib/format';
 import { useStore } from '../lib/store';
 import type { AppUser, UserRole } from '../lib/types';
@@ -38,6 +38,8 @@ export function PeoplePage({ mode }: { mode: 'faculty' | 'users' }) {
           email,
           password: value(cells, 'password'),
           displayName: value(cells, 'name') || email,
+          phone: value(cells, 'phone'),
+          gender: value(cells, 'gender'),
           role: 'student',
           degreeId: value(cells, 'degreeid'),
           streamId: value(cells, 'streamid'),
@@ -54,7 +56,7 @@ export function PeoplePage({ mode }: { mode: 'faculty' | 'users' }) {
     }
   };
   const downloadStudentTemplate = () => {
-    const csv = 'name,email,password,degreeid,streamid,year,batchid,batchname\nRahul Sharma,rahul@example.com,Student@123,BTECH,CSE,1,BATCH-A,Batch A\nPriya Singh,priya@example.com,Student@123,BTECH,CSE,1,BATCH-B,Batch B\n';
+    const csv = 'name,email,phone,gender,password,degreeid,streamid,year,batchid,batchname\nRahul Sharma,rahul@example.com,9876543210,male,Student@123,BTECH,CSE,1,BATCH-A,Batch A\nPriya Singh,priya@example.com,9876543211,female,Student@123,BTECH,CSE,1,BATCH-B,Batch B\n';
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
@@ -66,7 +68,8 @@ export function PeoplePage({ mode }: { mode: 'faculty' | 'users' }) {
   const term = search.trim().toLowerCase();
   const list = users
     .filter((u) => mode === 'users' || u.role === 'faculty')
-    .filter((u) => !term || [u.displayName, u.email, u.subject, u.facultyId].some((v) => v.toLowerCase().includes(term)));
+    .filter((u) => !term || [u.displayName, u.email, u.subject, u.facultyId, u.phone ?? '', u.gender ?? ''].some((v) => v.toLowerCase().includes(term)));
+  const columnCount = 5 + (mode === 'users' ? 3 : 1);
 
   const remove = async () => {
     if (!removing) return;
@@ -113,8 +116,10 @@ export function PeoplePage({ mode }: { mode: 'faculty' | 'users' }) {
                 <th>Name</th>
                 <th>Email</th>
                 {mode === 'users' && <th>Role</th>}
-                <th>{mode === 'faculty' ? 'Assigned subjects' : 'Subject / Room'}</th>
+                {mode === 'users' && <th>Phone</th>}
+                <th>{mode === 'faculty' ? 'Assigned subjects' : 'Courses / assignment'}</th>
                 {mode === 'faculty' && <th>Recordings</th>}
+                {mode === 'users' && <th>Gender</th>}
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -122,7 +127,7 @@ export function PeoplePage({ mode }: { mode: 'faculty' | 'users' }) {
             <tbody>
               {list.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="empty">
+                  <td colSpan={columnCount} className="empty">
                     No accounts found.
                   </td>
                 </tr>
@@ -144,6 +149,7 @@ export function PeoplePage({ mode }: { mode: 'faculty' | 'users' }) {
                       <Pill tone={ROLE_TONE[u.role]}>{u.role === 'mount' ? 'Mount device' : u.role[0].toUpperCase() + u.role.slice(1)}</Pill>
                     </td>
                   )}
+                  {mode === 'users' && <td>{u.phone || '—'}</td>}
                   <td>
                     {mode === 'faculty' ? (
                       (() => {
@@ -168,11 +174,15 @@ export function PeoplePage({ mode }: { mode: 'faculty' | 'users' }) {
                       u.role === 'mount' ? (
                         u.classroomName ? <Pill tone="amber">🔒 {u.classroomName}</Pill> : <span className="cell-sub">No room locked</span>
                       ) : (
-                        u.role === 'student' ? `${u.batchName || 'No batch assigned'}${u.year ? ` · Year ${u.year}` : ''}` : u.subject || '—'
+                        u.role === 'student' ? (() => {
+                          const courses = subjects.filter((subject) => subject.degreeId === u.degreeId && subject.streamId === u.streamId && subject.year === u.year);
+                          return courses.length ? courses.map((course) => course.name).join(', ') : u.batchName || 'No course assigned';
+                        })() : u.subject || '—'
                       )
                     )}
                   </td>
                   {mode === 'faculty' && <td>{recordings.filter((r) => r.facultyUid === u.uid).length}</td>}
+                  {mode === 'users' && <td>{u.role === 'student' ? u.gender || '—' : '—'}</td>}
                   <td>{u.active ? <Pill tone="green">Active</Pill> : <Pill tone="amber">{u.role === 'student' ? 'Pending approval' : 'Inactive'}</Pill>}</td>
                   <td>
                     <div className="actions">

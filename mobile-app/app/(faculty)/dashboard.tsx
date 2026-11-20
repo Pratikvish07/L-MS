@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
+import type { ComponentProps } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/common/AppButton';
 import { Avatar } from '@/components/common/Avatar';
 import { ErrorBanner } from '@/components/common/ErrorBanner';
 import { LoadingView } from '@/components/common/LoadingView';
+import { GradientCard } from '@/components/common/Visuals';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ControlCodeForm } from '@/components/recording/ControlCodeForm';
 import { MountStatusCard } from '@/components/recording/MountStatusCard';
@@ -15,14 +17,22 @@ import { useCurrentUser } from '@/hooks/useAuth';
 import { useFacultyPairing } from '@/hooks/usePairing';
 import { useRecordings } from '@/hooks/useRecordings';
 
-function Stat({ value, label, color }: { value: number; label: string; color: string }) {
+function HeroStat({ value, label }: { value: number; label: string }) {
   return (
-    <View accessible accessibilityLabel={`${value} ${label}`} style={styles.stat}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View accessible accessibilityLabel={`${value} ${label}`} style={styles.heroStat}>
+      <Text style={styles.heroStatValue}>{value}</Text>
+      <Text style={styles.heroStatLabel}>{label}</Text>
     </View>
   );
 }
+
+type IconName = ComponentProps<typeof Ionicons>['name'];
+const QUICK: { icon: IconName; label: string; href: Href; bg: string; fg: string }[] = [
+  { icon: 'videocam', label: 'Lectures', href: '/recordings', bg: '#EDE9FE', fg: '#6D28D9' },
+  { icon: 'library', label: 'Subjects', href: '/subjects', bg: '#DBEAFE', fg: '#2563EB' },
+  { icon: 'phone-portrait', label: 'Recorder', href: '/devices', bg: '#DCFCE7', fg: '#16A34A' },
+  { icon: 'person', label: 'Profile', href: '/profile', bg: '#FEF3C7', fg: '#D97706' },
+];
 
 export default function DashboardScreen() {
   const user = useCurrentUser();
@@ -39,12 +49,30 @@ export default function DashboardScreen() {
         right={{ icon: 'notifications-outline', label: 'Recent recordings', onPress: () => router.push('/recordings') }}
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.profile}>
-          <Avatar name={user.displayName} uri={user.photoURL} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{user.displayName}</Text>
-            <Text style={styles.role}>Faculty{user.subject ? ` • ${user.subject}` : ''}</Text>
+        <GradientCard style={{ gap: 16 }}>
+          <View style={styles.heroRow}>
+            <View style={styles.heroAvatar}><Avatar name={user.displayName} uri={user.photoURL} size={50} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroEyebrow}>INSTRUCTOR DASHBOARD</Text>
+              <Text style={styles.heroName} numberOfLines={1}>{user.displayName}</Text>
+              <Text style={styles.heroMeta}>{user.facultyId ? `ID ${user.facultyId}` : 'Faculty'}{pairing ? ' · Recorder connected' : ''}</Text>
+            </View>
           </View>
+          <View style={styles.heroStats}>
+            <HeroStat value={recordings.length} label="Lectures" />
+            <HeroStat value={today.items.length} label="Today" />
+            <HeroStat value={today.uploaded} label="Uploaded" />
+            <HeroStat value={today.pending} label="Pending" />
+          </View>
+        </GradientCard>
+
+        <View style={styles.quick}>
+          {QUICK.map((q) => (
+            <Pressable key={q.label} accessibilityRole="button" onPress={() => router.push(q.href)} style={styles.quickItem}>
+              <View style={[styles.quickIcon, { backgroundColor: q.bg }]}><Ionicons name={q.icon} size={24} color={q.fg} /></View>
+              <Text style={styles.quickLabel}>{q.label}</Text>
+            </Pressable>
+          ))}
         </View>
 
         {error && <ErrorBanner message={error} />}
@@ -69,29 +97,17 @@ export default function DashboardScreen() {
           </Pressable>
         )}
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Today's Recordings</Text>
-          {loading ? (
-            <LoadingView />
-          ) : (
-            <View style={styles.stats}>
-              <Stat value={today.uploaded} label="Uploaded" color={colors.primary} />
-              <Stat value={today.uploading} label="Uploading" color={colors.blue} />
-              <Stat value={today.pending} label="Pending" color={colors.red} />
-            </View>
-          )}
-        </View>
+        {loading && <LoadingView />}
 
         {!pairing && <ControlCodeForm faculty={user} />}
 
-        <AppButton title="New Recording" icon="videocam" onPress={() => router.push('/new-recording')} />
-        <AppButton title="View Recordings" icon="list" variant="secondary" onPress={() => router.push('/recordings')} />
+        <AppButton title="New Lecture" icon="add-circle" onPress={() => router.push('/new-recording')} />
 
         <MountStatusCard pairing={pairing} online={online} onPress={() => router.push('/devices')} />
 
         {today.items.length > 0 && (
           <View style={{ gap: 10 }}>
-            <Text style={styles.sectionTitle}>Today</Text>
+            <Text style={styles.sectionTitle}>Today’s lectures</Text>
             {today.items.slice(0, 5).map((r) => (
               <RecordingCard
                 key={r.id}
@@ -109,31 +125,19 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, gap: 14, paddingBottom: 32 },
-  profile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  name: { fontSize: 17, fontWeight: '700', color: colors.text },
-  role: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  card: {
-    padding: 16,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-  },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
-  stats: { flexDirection: 'row' },
-  stat: { flex: 1, alignItems: 'center', gap: 2 },
-  statValue: { fontSize: 28, fontWeight: '800' },
-  statLabel: { fontSize: 12, color: colors.textMuted },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  heroAvatar: { padding: 2, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.35)' },
+  heroEyebrow: { color: '#DDD6FE', fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  heroName: { color: colors.white, fontSize: 20, fontWeight: '800' },
+  heroMeta: { color: '#E9E3FF', fontSize: 12, marginTop: 2 },
+  heroStats: { flexDirection: 'row', gap: 8 },
+  heroStat: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.16)' },
+  heroStatValue: { color: colors.white, fontSize: 20, fontWeight: '800' },
+  heroStatLabel: { color: '#E9E3FF', fontSize: 11, fontWeight: '600' },
+  quick: { flexDirection: 'row', justifyContent: 'space-between' },
+  quickItem: { flex: 1, alignItems: 'center', gap: 6 },
+  quickIcon: { width: 54, height: 54, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  quickLabel: { fontSize: 12, fontWeight: '600', color: colors.text },
   activeBanner: {
     flexDirection: 'row',
     alignItems: 'center',

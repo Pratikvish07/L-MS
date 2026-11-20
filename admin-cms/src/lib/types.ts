@@ -1,4 +1,4 @@
-// Mirrors the static data model used by web and mobile.
+// Shared Firebase data model used by web and mobile.
 
 export type UserRole = 'faculty' | 'admin' | 'mount' | 'student';
 
@@ -6,6 +6,8 @@ export interface AppUser {
   uid: string;
   email: string;
   displayName: string;
+  phone?: string;
+  gender?: string;
   role: UserRole;
   active: boolean;
   approvalStatus?: 'pending' | 'approved' | 'rejected';
@@ -31,8 +33,17 @@ export type RecordingStatus =
   | 'published'
   | 'failed';
 
+/** A lecture notes file (Word / PDF) in Firebase Storage. */
+export interface LectureNote { name: string; path: string; url: string; contentType: string; size: number; uploadedAt: string; uploadedBy: string; }
+
 export interface Recording {
   id: string;
+  courseId: string;
+  courseName: string;
+  batchId: string;
+  batchName: string;
+  lectureNumber: string;
+  lectureNotes: LectureNote[];
   sessionId: string;
   facultyUid: string;
   mountUid: string;
@@ -40,8 +51,10 @@ export interface Recording {
   classroomName: string;
   facultyId: string;
   facultyName: string;
+  degreeId?: string;
   className: string;
   degreeName: string;
+  streamId?: string;
   streamName: string;
   year: number;
   subjectId: string;
@@ -51,6 +64,7 @@ export interface Recording {
   recordedAt: string;
   durationSeconds: number;
   fileSizeBytes: number;
+  mimeType?: string;
   storagePath: string;
   videoApiId?: string;
   partFileIds?: string[];

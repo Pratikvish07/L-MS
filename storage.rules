@@ -1,0 +1,54 @@
+rules_version = '2';
+// Lecture notes live next to their lecture:
+//   courses/{courseId}/batches/{batchId}/subjects/{subjectId}/lectures/{lectureId}/notes/{fileName}
+// Videos stay on the video API; only notes (Word / PDF) are stored here.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() {
+      return signedIn() && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/admins/$(request.auth.uid)).data.isActive == true;
+    }
+    function profile() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
+    function isFaculty() { return signedIn() && profile().role == 'faculty' && profile().active == true; }
+    function enrolled(courseId, batchId) {
+      let path = /databases/(default)/documents/enrollments/$(request.auth.uid + '_' + courseId);
+      return signedIn() && firestore.exists(path)
+        && firestore.get(path).data.status == 'approved'
+        && firestore.get(path).data.batchId == batchId;
+    }
+    function isNotesFile() {
+      return request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches('application/(msword|vnd.openxmlformats-officedocument.wordprocessingml.document|pdf)');
+    }
+
+    match /courses/{courseId}/batches/{batchId}/subjects/{subjectId}/lectures/{lectureId}/notes/{fileName} {
+      allow read: if isAdmin() || isFaculty() || enrolled(courseId, batchId);
+      allow create, update: if (isAdmin() || isFaculty()) && isNotesFile();
+      allow delete: if isAdmin() || isFaculty();
+    }
+
+    // Test question papers and assignment files. Any student enrolled in the course can read them.
+    match /courses/{courseId}/subjects/{subjectId}/assessments/{assessmentId}/{fileName} {
+      allow read: if isAdmin() || isFaculty() || (signedIn() && firestore.exists(/databases/(default)/documents/enrollments/$(request.auth.uid + '_' + courseId)));
+      allow write: if isAdmin() && request.resource.size < 25 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
+    // Student answer sheets / assignment submissions: each student writes only their own folder.
+    match /courses/{courseId}/subjects/{subjectId}/assessments/{assessmentId}/submissions/{studentUid}/{fileName} {
+      allow read: if isAdmin() || isFaculty() || (signedIn() && request.auth.uid == studentUid);
+      allow create: if signedIn() && request.auth.uid == studentUid
+        && firestore.exists(/databases/(default)/documents/enrollments/$(request.auth.uid + '_' + courseId))
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches('application/(pdf|msword|vnd.openxmlformats-officedocument.wordprocessingml.document)|image/(jpeg|png)');
+      allow delete: if isAdmin();
+    }
+
+    // Course images and other admin uploads.
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && request.resource.size < 10 * 1024 * 1024;
+    }
+  }
+}

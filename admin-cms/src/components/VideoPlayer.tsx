@@ -1,7 +1,7 @@
 import { PlayCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { fetchObjectUrl } from '../lib/data';
+import { fetchObjectUrl } from '../lib/firebase-data';
 import { formatBytes } from '../lib/format';
 import type { Recording } from '../lib/types';
 

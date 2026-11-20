@@ -6,9 +6,11 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** Wider dialog for previews (video / documents). */
+  wide?: boolean;
 }
 
-export function Modal({ title, onClose, children, footer }: ModalProps) {
+export function Modal({ title, onClose, children, footer, wide }: ModalProps) {
   const titleId = useId();
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export function Modal({ title, onClose, children, footer }: ModalProps) {
 
   return (
     <div className="backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div className={`modal${wide ? ' modal-wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="modal-head">
           <h2 id={titleId}>{title}</h2>
           <button className="icon-btn" aria-label="Close" onClick={onClose}>

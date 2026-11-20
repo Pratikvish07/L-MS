@@ -14,7 +14,7 @@ import { academicLabel } from '@/utils/academics';
 export default function SubjectsScreen() {
   const user = useCurrentUser();
   const { degrees, streams, subjects, loading, error } = useCatalog();
-  const mine = subjects.filter((s) => s.facultyUids.includes(user.uid));
+  const mine = subjects.filter((s) => (s.facultyUids ?? []).includes(user.uid) || String((s as unknown as { instructor?: string }).instructor ?? '') === user.displayName);
 
   if (loading) return <LoadingView />;
 

@@ -25,7 +25,7 @@ export function SettingsPage() {
           <h2 style={{ fontSize: 15, marginBottom: 14 }}>System</h2>
           <dl className="kv">
             <dt>Data</dt>
-            <dd>Static demo data. Edits are saved in this browser only.</dd>
+            <dd>Firebase stores account, academic catalog, and lecture metadata. The video API stores video files.</dd>
             <dt>Video storage</dt>
             <dd>Video files are served by the configured video API.</dd>
             <dt>Publishing</dt>

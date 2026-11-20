@@ -10,7 +10,7 @@ import {
   subscribeSubjects,
   subscribeUsers,
   subscribeBatches,
-} from './data';
+} from './firebase-data';
 import type { AppUser, Batch, Chapter, Classroom, Degree, MountDevice, Recording, Stream, Subject } from './types';
 
 interface StoreValue {
@@ -26,6 +26,8 @@ interface StoreValue {
   devices: MountDevice[];
   loading: boolean;
   error: string | null;
+  /** Set while the external video server is failing; cleared when it recovers. */
+  videoApiError: string | null;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -49,6 +51,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [devices, setDevices] = useState<MountDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [videoApiError, setVideoApiError] = useState<string | null>(null);
 
   useEffect(() => {
     const onError = (e: Error) => setError(e.message);
@@ -59,7 +62,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }, (e) => {
         onError(e);
         setLoading(false);
-      }),
+      }, setVideoApiError),
       subscribeUsers(setUsers, onError),
       subscribeBatches(setBatches, onError),
       subscribeClassrooms(setClassrooms, onError),
@@ -73,7 +76,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <StoreContext.Provider value={{ recordings, users, batches, classrooms, degrees, streams, subjects, chapters, devices, loading, error }}>
+    <StoreContext.Provider value={{ recordings, users, batches, classrooms, degrees, streams, subjects, chapters, devices, loading, error, videoApiError }}>
       {children}
     </StoreContext.Provider>
   );

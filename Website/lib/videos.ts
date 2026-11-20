@@ -1,0 +1,2 @@
+export type ApiVideo = { id: string | number; title: string; video_url: string; created_at?: string; thumbnail_url?: string };
+export async function getVideos(): Promise<ApiVideo[]> { const response = await fetch(`${process.env.NEXT_PUBLIC_VIDEO_API_BASE_URL}/api/videos`, { next: { revalidate: 60 } }); const payload = await response.json(); const videos = Array.isArray(payload) ? payload : payload.data; return Array.isArray(videos) ? videos : []; }

@@ -173,7 +173,7 @@ export default function SubjectChaptersScreen() {
 
   const degree = degrees.find((d) => d.id === subject?.degreeId);
   const stream = streams.find((s) => s.id === subject?.streamId);
-  const assigned = !!subject?.facultyUids.includes(user.uid);
+  const assigned = !!subject && ((subject.facultyUids ?? []).includes(user.uid) || String((subject as unknown as { instructor?: string }).instructor ?? '') === user.displayName);
 
   return (
     <View style={styles.screen}>

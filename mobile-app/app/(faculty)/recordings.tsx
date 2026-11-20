@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ErrorBanner } from '@/components/common/ErrorBanner';
 import { LoadingView } from '@/components/common/LoadingView';
@@ -10,15 +10,24 @@ import { RecordingCard } from '@/components/recording/RecordingCard';
 import { colors, radius } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useAuth';
 import { useRecordings } from '@/hooks/useRecordings';
-import { PENDING_STATUSES, UPLOADED_STATUSES, type Recording } from '@/types/recording.types';
+import { UPLOADED_STATUSES, type Recording } from '@/types/recording.types';
 
 const FILTERS = [
   { key: 'all', label: 'All', match: () => true },
   { key: 'uploaded', label: 'Uploaded', match: (r: Recording) => UPLOADED_STATUSES.includes(r.status) },
-  { key: 'uploading', label: 'Uploading', match: (r: Recording) => r.status === 'uploading' },
-  { key: 'pending', label: 'Pending', match: (r: Recording) => PENDING_STATUSES.includes(r.status) && r.status !== 'failed' },
+  { key: 'not-uploaded', label: 'Not uploaded', match: (r: Recording) => !UPLOADED_STATUSES.includes(r.status) },
   { key: 'failed', label: 'Failed', match: (r: Recording) => r.status === 'failed' },
 ] as const;
+
+const dayLabel = (iso: string) => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'No date';
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 86_400_000);
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 export default function RecordingsScreen() {
   const user = useCurrentUser();
@@ -32,9 +41,19 @@ export default function RecordingsScreen() {
     return recordings.filter(
       (r) =>
         matcher(r) &&
-        (!term || [r.topic, r.chapter, r.className, r.classroomName].some((v) => v.toLowerCase().includes(term))),
+        (!term || [r.topic, r.courseName, r.batchName, r.subjectName, r.className].some((v) => (v ?? '').toLowerCase().includes(term))),
     );
   }, [recordings, search, filter]);
+
+  // Newest day first; one section per lecture date.
+  const sections = useMemo(() => {
+    const groups = new Map<string, Recording[]>();
+    for (const recording of visible) {
+      const key = dayLabel(recording.recordedAt);
+      groups.set(key, [...(groups.get(key) ?? []), recording]);
+    }
+    return [...groups.entries()].map(([title, data]) => ({ title, data, uploaded: data.filter((r) => UPLOADED_STATUSES.includes(r.status)).length }));
+  }, [visible]);
 
   return (
     <View style={styles.screen}>
@@ -44,7 +63,7 @@ export default function RecordingsScreen() {
           <Ionicons name="search" size={18} color={colors.textMuted} />
           <TextInput
             accessibilityLabel="Search recordings"
-            placeholder="Search by topic, chapter, class…"
+            placeholder="Search lecture, course, batch, subject…"
             placeholderTextColor="#9CA3AF"
             value={search}
             onChangeText={setSearch}
@@ -69,9 +88,11 @@ export default function RecordingsScreen() {
       {loading ? (
         <LoadingView />
       ) : (
-        <FlatList
-          data={visible}
+        <SectionList
+          sections={sections}
           keyExtractor={(r) => r.id}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => <Text style={styles.sectionHeader}>{section.title} · {section.uploaded}/{section.data.length} uploaded</Text>}
           contentContainerStyle={styles.list}
           ListHeaderComponent={error ? <ErrorBanner message={error} /> : null}
           ListEmptyComponent={
@@ -121,6 +142,7 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, color: colors.text, fontWeight: '500' },
   chipTextActive: { color: colors.white },
   list: { padding: 16, gap: 10 },
+  sectionHeader: { fontSize: 13, fontWeight: '700', color: colors.textMuted, marginTop: 8 },
   empty: { alignItems: 'center', gap: 10, paddingTop: 48 },
   emptyText: { fontSize: 14, color: colors.textMuted, textAlign: 'center' },
 });

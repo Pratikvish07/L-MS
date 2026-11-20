@@ -17,7 +17,7 @@ interface ControlCodeFormProps {
 }
 
 /** Faculty phone: type the 6-digit code shown on the classroom phone to control it. */
-export function ControlCodeForm({ faculty, title = 'Connect to classroom phone', onClaimed }: ControlCodeFormProps) {
+export function ControlCodeForm({ faculty, title = 'Connect recorder', onClaimed }: ControlCodeFormProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,9 +59,17 @@ export function ControlCodeForm({ faculty, title = 'Connect to classroom phone',
         <Text style={styles.title}>{title}</Text>
       </View>
       <Text style={styles.help}>
-        Type the {PAIRING_CODE_LENGTH}-digit code on the tripod phone. It changes every 30 seconds.
+        Type the {PAIRING_CODE_LENGTH}-digit code shown on the classroom recorder phone. It changes every 30 seconds.
       </Text>
       <View style={styles.inputRow}>
+        {/* Six boxes for display; one transparent input on top receives typing, paste and one-time-code autofill. */}
+        <View style={styles.boxes} pointerEvents="none">
+          {Array.from({ length: PAIRING_CODE_LENGTH }, (_, index) => (
+            <View key={index} style={[styles.box, index === code.length && !busy && styles.boxActive, index < code.length && styles.boxFilled]}>
+              <Text style={styles.boxText}>{code[index] ?? ''}</Text>
+            </View>
+          ))}
+        </View>
         <TextInput
           accessibilityLabel={`${PAIRING_CODE_LENGTH}-digit control code`}
           value={code}
@@ -69,8 +77,7 @@ export function ControlCodeForm({ faculty, title = 'Connect to classroom phone',
           keyboardType="number-pad"
           inputMode="numeric"
           maxLength={PAIRING_CODE_LENGTH}
-          placeholder="••••••"
-          placeholderTextColor="#D1D5DB"
+          caretHidden
           autoComplete="one-time-code"
           textContentType="oneTimeCode"
           editable={!busy}
@@ -81,7 +88,7 @@ export function ControlCodeForm({ faculty, title = 'Connect to classroom phone',
       {error && <ErrorBanner message={error} />}
       {success && (
         <View style={styles.success} accessibilityLiveRegion="polite">
-          <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+          <Ionicons name="checkmark-circle" size={18} color={colors.green} />
           <Text style={styles.successText}>{success}</Text>
         </View>
       )}
@@ -103,20 +110,14 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700', color: colors.text },
   help: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
   inputRow: { justifyContent: 'center' },
-  input: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: 14,
-    textAlign: 'center',
-    color: colors.text,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-    fontVariant: ['tabular-nums'],
-  },
+  boxes: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  box: { width: 44, height: 54, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  boxActive: { borderColor: colors.primary, backgroundColor: colors.surface },
+  boxFilled: { borderColor: '#C4B5FD', backgroundColor: colors.primarySoft },
+  boxText: { fontSize: 24, fontWeight: '800', color: colors.primaryDark, fontVariant: ['tabular-nums'] },
+  // Invisible but focusable: covers the boxes so a tap anywhere opens the keyboard.
+  input: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, color: 'transparent', fontSize: 1, opacity: 0.02 },
   spinner: { position: 'absolute', right: 16 },
   success: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  successText: { fontSize: 14, color: colors.primaryDark, fontWeight: '600' },
+  successText: { fontSize: 14, color: colors.green, fontWeight: '600' },
 });

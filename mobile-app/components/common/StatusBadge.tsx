@@ -8,8 +8,8 @@ const STATUS: Record<RecordingStatus, { label: string; fg: string; bg: string }>
   recording: { label: 'Recording', fg: colors.red, bg: colors.redSoft },
   saved_locally: { label: 'Pending upload', fg: colors.amber, bg: colors.amberSoft },
   uploading: { label: 'Uploading', fg: colors.blue, bg: colors.blueSoft },
-  uploaded: { label: 'Uploaded', fg: colors.primaryDark, bg: colors.primarySoft },
-  published: { label: 'Published', fg: colors.primaryDark, bg: colors.primarySoft },
+  uploaded: { label: 'Uploaded', fg: colors.green, bg: colors.greenSoft },
+  published: { label: 'Published', fg: colors.green, bg: colors.greenSoft },
   failed: { label: 'Failed', fg: colors.red, bg: colors.redSoft },
 };
 

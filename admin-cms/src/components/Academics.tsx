@@ -1,7 +1,7 @@
 import { BookOpen, ChevronRight, GraduationCap, Layers, Pencil, Plus, Search, Trash2, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { deleteBatch, deleteDegree, deleteStream, deleteSubject, saveBatch, saveDegree, saveStream, saveSubject } from '../lib/data';
+import { deleteBatch, deleteDegree, deleteStream, deleteSubject, saveBatch, saveDegree, saveStream, saveSubject } from '../lib/firebase-data';
 import { yearLabel } from '../lib/format';
 import { useStore } from '../lib/store';
 import type { AppUser, Degree, Stream, Subject } from '../lib/types';
@@ -551,7 +551,7 @@ export function Academics() {
 }
 
 export function BatchManagement() {
-  const { degrees, streams, classrooms, batches } = useStore();
+  const { degrees, streams, classrooms, batches, users } = useStore();
   const [degreeId, setDegreeId] = useState('');
   const [streamId, setStreamId] = useState('');
   const [year, setYear] = useState(1);
@@ -576,6 +576,6 @@ export function BatchManagement() {
       <label className="field"><span>Classroom</span><select className="input" value={classroomId} onChange={(e) => setClassroomId(e.target.value)}><option value="">No classroom</option>{classrooms.map((c) => <option key={c.id} value={c.id}>Room {c.roomNo}</option>)}</select></label>
       <div style={{ alignSelf: 'end' }}><button className="btn" onClick={add}>+ Add batch</button></div>
     </div>
-    <div className="table-wrap"><table><thead><tr><th>Batch</th><th>Degree / Stream / Year</th><th>Classroom</th><th>Students</th><th /></tr></thead><tbody>{visible.map((batch) => <tr key={batch.id}><td className="cell-title">{batch.name}</td><td>{degree?.name} · {degreeStreams.find((s) => s.id === streamId)?.name} · {yearLabel(year)}</td><td>{batch.classroomName || 'Not assigned'}</td><td>Assign students from Users</td><td><button className="icon-btn danger" onClick={() => deleteBatch(batch.id)}><Trash2 size={15} /></button></td></tr>)}{!visible.length && <tr><td colSpan={5} className="empty">Select a degree, stream and year to view batches.</td></tr>}</tbody></table></div>
+    <div className="table-wrap"><table><thead><tr><th>Batch</th><th>Degree / Stream / Year</th><th>Classroom</th><th>Enrolled students</th><th /></tr></thead><tbody>{visible.map((batch) => <tr key={batch.id}><td className="cell-title">{batch.name}</td><td>{degree?.name} · {degreeStreams.find((s) => s.id === streamId)?.name} · {yearLabel(year)}</td><td>{batch.classroomName || 'Not assigned'}</td><td>{users.filter((user) => user.role === 'student' && user.batchId === batch.id).length}</td><td><button className="icon-btn danger" aria-label={`Delete ${batch.name}`} onClick={() => deleteBatch(batch.id)}><Trash2 size={15} /></button></td></tr>)}{!visible.length && <tr><td colSpan={5} className="empty">Select a degree, stream and year to view batches.</td></tr>}</tbody></table></div>
   </section>;
 }

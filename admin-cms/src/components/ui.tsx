@@ -1,7 +1,7 @@
 import { Film } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { fetchObjectUrl } from '../lib/data';
+import { fetchObjectUrl } from '../lib/firebase-data';
 import { initials, STATUS_LABEL } from '../lib/format';
 import type { RecordingStatus } from '../lib/types';
 

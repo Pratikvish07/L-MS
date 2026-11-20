@@ -6,6 +6,7 @@ import { AppButton } from '@/components/common/AppButton';
 import { SplashBrand } from '@/components/layout/SplashBrand';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { STUDENT_HOME } from '@/constants/studentTheme';
 
 const MIN_SPLASH_MS = 900;
 
@@ -36,7 +37,7 @@ export default function Index() {
 
   if (user?.role === 'faculty') return <Redirect href="/dashboard" />;
   if (user?.role === 'mount') return <Redirect href="/pair-device" />;
-  if (user?.role === 'student') return <Redirect href="/portfolio" />;
+  if (user?.role === 'student') return <Redirect href={STUDENT_HOME} />;
 
   // Administrators use the web Admin CMS.
   return (
