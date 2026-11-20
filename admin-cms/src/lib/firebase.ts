@@ -40,3 +40,17 @@ export async function existingAccountUid(email: string, password: string) {
   await signOut(accountAuth).catch(() => undefined);
   return credential.user.uid;
 }
+
+/**
+ * Firestore writes wait silently until the server confirms them. When the project has hit its
+ * daily write quota (free Spark plan: 20,000 writes/day) or the connection is blocked, the server
+ * never confirms and the save spins forever. This gives up after `ms` with an explanation.
+ */
+export function confirmedWrite<T>(write: Promise<T>, ms = 20_000): Promise<T> {
+  return Promise.race([
+    write,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(
+      'Firebase did not confirm the save. Most likely the project has reached its daily write limit (free Spark plan) or the connection to Firebase is blocked. Check Firebase console → Firestore → Usage, finish the Blaze upgrade, then try again.',
+    )), ms)),
+  ]);
+}

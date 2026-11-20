@@ -9,7 +9,7 @@ import { Link, useSearchParams } from 'react-router';
 import { PageHead } from '../components/Layout';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { Pill } from '../components/ui';
-import { createManagedAccount, firestore } from '../lib/firebase';
+import { confirmedWrite, createManagedAccount, existingAccountUid, firestore } from '../lib/firebase';
 import { useStore } from '../lib/store';
 import type { AppUser, UserRole } from '../lib/types';
 
@@ -66,7 +66,7 @@ export function UsersPage({ only, initialFilter = '' }: { only?: Access; initial
 
   const approve = async (user: Profile) => {
     setError('');
-    try { await updateDoc(doc(firestore, 'users', user.uid), { active: true, approvalStatus: 'approved', approvedAt: now() }); } catch (cause) { setError(message(cause)); }
+    try { await confirmedWrite(updateDoc(doc(firestore, 'users', user.uid), { active: true, approvalStatus: 'approved', approvedAt: now() })); } catch (cause) { setError(message(cause)); }
   };
   const remove = async () => {
     if (!removing) return;
@@ -154,7 +154,7 @@ function UserFormModal({ user, only, roles, classrooms, onClose, onSaved }: {
     if (editingStudent && user) {
       setBusy(true); setError('');
       try {
-        await updateDoc(doc(firestore, 'users', user.uid), { displayName: form.displayName.trim(), phone: form.phone.trim(), active: form.active, approvalStatus: form.active ? 'approved' : user.approvalStatus ?? 'pending', updatedAt: now() });
+        await confirmedWrite(updateDoc(doc(firestore, 'users', user.uid), { displayName: form.displayName.trim(), phone: form.phone.trim(), active: form.active, approvalStatus: form.active ? 'approved' : user.approvalStatus ?? 'pending', updatedAt: now() }));
         onSaved(`${form.displayName.trim()} updated.`);
         onClose();
       } catch (cause) { setError(message(cause)); } finally { setBusy(false); }
@@ -167,11 +167,23 @@ function UserFormModal({ user, only, roles, classrooms, onClose, onSaved }: {
     if (!user && form.password && form.password.length < 6) { setError('Password must be at least 6 characters.'); return; }
 
     setBusy(true); setError('');
+    let createdLogin = false;
+    const generated = !user && !form.password ? temporaryPassword() : '';
     try {
       const room = classrooms.find((item) => item.id === form.classroomId);
       let uid = user?.uid;
-      const generated = !user && !form.password ? temporaryPassword() : '';
-      if (!uid) uid = (await createManagedAccount(email, form.password || generated)).uid;
+      if (!uid) {
+        try {
+          uid = (await createManagedAccount(email, form.password || generated)).uid;
+          createdLogin = true;
+        } catch (cause) {
+          if ((cause as { code?: string }).code !== 'auth/email-already-in-use') throw cause;
+          // A login already exists (e.g. an earlier save failed after creating it): reuse it with its password.
+          if (!form.password) throw new Error('This email already has a login. Type that login’s password in the Password field and save again to finish setting it up, or delete the login in Firebase console → Authentication.');
+          try { uid = await existingAccountUid(email, form.password); }
+          catch { throw new Error('This email already has a login, and the password does not match it. Use its original password, or delete the login in Firebase console → Authentication and add the user again.'); }
+        }
+      }
       const fields = {
         uid, email, displayName: form.displayName.trim(), phone: form.phone.trim(),
         roleId: role.id, roleName: role.name, role: access,
@@ -180,14 +192,16 @@ function UserFormModal({ user, only, roles, classrooms, onClose, onSaved }: {
         classroomId: access === 'mount' ? form.classroomId : '', classroomName: access === 'mount' && room ? `Room ${room.roomNo}` : '',
         ...(user ? {} : { createdAt: now() }), updatedAt: now(),
       };
-      await setDoc(doc(firestore, 'users', uid), fields, { merge: true });
-      if (access === 'admin') await setDoc(doc(firestore, 'admins', uid), { email, displayName: fields.displayName, role: 'admin', isActive: form.active }, { merge: true });
-      if (access === 'mount' && room) await setDoc(doc(firestore, 'classrooms', room.id), { mountId: uid, mountName: fields.displayName }, { merge: true });
+      await confirmedWrite(setDoc(doc(firestore, 'users', uid), fields, { merge: true }));
+      if (access === 'admin') await confirmedWrite(setDoc(doc(firestore, 'admins', uid), { email, displayName: fields.displayName, role: 'admin', isActive: form.active }, { merge: true }));
+      if (access === 'mount' && room) await confirmedWrite(setDoc(doc(firestore, 'classrooms', room.id), { mountId: uid, mountName: fields.displayName }, { merge: true }));
       onSaved(user ? `${fields.displayName} updated.` : generated ? `${fields.displayName} can sign in with ${email} / ${generated}. Share the password now; it is not shown again.` : `${fields.displayName} can sign in with ${email} and the password you set.`);
       onClose();
     } catch (cause) {
-      const code = (cause as { code?: string }).code;
-      setError(code === 'auth/email-already-in-use' ? 'This email already has a login.' : message(cause));
+      // The login exists but its profile did not save: the person cannot sign in until it does.
+      setError(createdLogin
+        ? `The login for ${email} was created, but its profile could not be saved (${message(cause)}). Press Save again ${generated ? `with password ${generated} typed in the Password field` : 'with the same password'} once Firebase accepts writes, and it will finish setting up this account.`
+        : message(cause));
     } finally { setBusy(false); }
   };
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { createPairingCodeForMount, deletePairingCode } from '@/services/pairing.service';
 import type { AppUser } from '@/types/auth.types';
@@ -21,9 +22,10 @@ export function useControlCode(mount: AppUser, deviceName: string, enabled: bool
 
   const rotate = useCallback(async () => {
     if (busyRef.current) return;
+    // Every code is a Firestore write: do not rotate while the app/tab is in the background.
+    if (AppState.currentState && AppState.currentState !== 'active') return;
     busyRef.current = true;
     setError(null);
-    const previous = codeRef.current;
     try {
       // A Firestore write waits forever when the server is unreachable; give up after 15 s so the
       // phone shows an error with Retry instead of an endless spinner.
@@ -38,7 +40,8 @@ export function useControlCode(mount: AppUser, deviceName: string, enabled: bool
       setError(explainCodeError(e, mountRef.current));
     } finally {
       busyRef.current = false;
-      if (previous) deletePairingCode(previous);
+      // The previous code is not deleted: it has expired (or was used) and is rejected anyway,
+      // and skipping the delete halves the writes.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the account ID on purpose
   }, [mountUid, deviceName]);

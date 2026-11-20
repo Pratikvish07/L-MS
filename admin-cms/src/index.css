@@ -597,3 +597,7 @@ iframe.preview-frame { background: var(--surface); }
 .auth-secure svg { color: var(--primary); }
 .auth-foot { font-size: 13px; color: var(--muted); }
 @media (max-width: 960px) { .auth { grid-template-columns: 1fr; } .auth-hero { display: none; } .auth-card { padding: 28px 22px; } }
+
+.setup-box { display: flex; flex-direction: column; gap: 8px; margin: 0 0 10px; padding: 10px; border-radius: 10px; background: var(--surface); color: var(--text); font-size: 13px; line-height: 1.5; }
+.uid-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.uid { flex: 1 1 200px; min-width: 0; padding: 6px 8px; border-radius: 8px; background: var(--primary-soft); color: var(--primary-dark); font-size: 13px; word-break: break-all; user-select: all; }

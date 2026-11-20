@@ -55,7 +55,7 @@ export interface PairingCode {
 }
 
 /** A mount is shown as connected if it reported in within this window. */
-export const MOUNT_HEARTBEAT_MS = 60_000;
-export const MOUNT_ONLINE_WINDOW_MS = 180_000;
+export const MOUNT_HEARTBEAT_MS = 120_000;
+export const MOUNT_ONLINE_WINDOW_MS = 300_000;
 /** Start commands older than this are ignored after a reconnect. */
 export const START_COMMAND_MAX_AGE_MS = 45_000;

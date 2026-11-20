@@ -23,6 +23,11 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyUid = async (uid: string) => {
+    try { await navigator.clipboard.writeText(uid); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { window.getSelection()?.selectAllChildren(document.querySelector('.uid') as Node); }
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -35,7 +40,12 @@ export function LoginPage() {
       await signIn(email, password);
     } catch (err) {
       const code = (err as { code?: string }).code ?? '';
-      setError(code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found') ? 'Incorrect email or password.' : err instanceof Error ? err.message : 'Sign-in failed.');
+      setError(
+        code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found') ? 'Incorrect email or password.'
+          : code.includes('configuration-not-found') || code.includes('operation-not-allowed') ? 'Email/password sign-in is not switched on for this Firebase project. In Firebase console → Authentication → Get started → Sign-in method → enable Email/Password.'
+          : code.includes('too-many-requests') ? 'Too many attempts. Wait a few minutes, or reset the password.'
+          : err instanceof Error ? err.message : 'Sign-in failed.',
+      );
     } finally {
       setBusy(false);
     }
@@ -76,8 +86,17 @@ export function LoginPage() {
 
           {status === 'denied' && (
             <div className="alert" role="alert">
-              <p style={{ margin: '0 0 8px' }}>{accessError}</p>
-              {user && <div style={{ fontSize: 13, color: 'var(--text)', margin: '0 0 8px' }}>Signed in as <strong>{user.email}</strong> (user ID <code>{user.uid}</code>).</div>}
+              <p style={{ margin: '0 0 8px' }}>{user?.email ?? 'This account'} signed in, but it is not set up as an admin yet.</p>
+              {user && (
+                <div className="setup-box">
+                  <span>In Firebase console → Firestore → collection <code>admins</code>, add a document with this exact <strong>Document ID</strong>:</span>
+                  <div className="uid-row">
+                    <code className="uid">{user.uid}</code>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => void copyUid(user.uid)}>{copied ? 'Copied' : 'Copy UID'}</button>
+                  </div>
+                  <span>Fields: <code>role</code> = <code>admin</code> (string), <code>isActive</code> = <code>true</code> (<strong>boolean</strong>), <code>email</code> = <code>{user.email}</code> (string). Then press Sign In again.</span>
+                </div>
+              )}
               <button type="button" className="link" onClick={() => signOut()}>Use a different account</button>
             </div>
           )}
