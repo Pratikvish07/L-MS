@@ -21,11 +21,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
+    let profileTimer: ReturnType<typeof setTimeout> | undefined;
 
     const unsubscribeAuth = onAuthChanged(
       (sessionUser) => {
         unsubscribeProfile?.();
         unsubscribeProfile = undefined;
+        clearTimeout(profileTimer);
 
         if (!sessionUser) {
           setUser(null);
@@ -34,15 +36,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setStatus('loading');
+        // The profile only counts when the server answers; if it never does, say so instead of loading forever.
+        profileTimer = setTimeout(() => {
+          setError('Could not reach the Finetution server to load your account. Check this phone’s internet connection, then reopen the app.');
+          setStatus('unauthorized');
+        }, 20_000);
         unsubscribeProfile = subscribeToProfile(
           sessionUser.uid,
-          (profile) => {
+          (profile, reason) => {
+            clearTimeout(profileTimer);
             setUser(profile);
             const pending = profile?.role === 'student' && !profile.active;
-            setError(pending ? 'Your student registration is awaiting administrator approval.' : profile ? null : 'Your account is not authorised for this app. Contact your administrator.');
+            const inactive = profile && !profile.active && !pending ? `${profile.email} is switched off. In Admin → User Manager tick "Active" for it.` : null;
+            setError(pending ? 'Your student registration is awaiting administrator approval.' : inactive ?? (profile ? null : `${sessionUser.email}: ${reason ?? 'Your account is not authorised for this app. Contact your administrator.'}`));
             setStatus(profile?.active ? 'signedIn' : 'unauthorized');
           },
           (profileError) => {
+            clearTimeout(profileTimer);
             setUser(null);
             setError(profileError.message);
             setStatus('unauthorized');
@@ -57,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     return () => {
+      clearTimeout(profileTimer);
       unsubscribeProfile?.();
       unsubscribeAuth();
     };

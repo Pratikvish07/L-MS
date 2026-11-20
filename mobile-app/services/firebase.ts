@@ -1,6 +1,6 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { Platform } from 'react-native';
 
@@ -15,5 +15,18 @@ const firebaseApp = getApps().length ? getApp() : initializeApp({
 
 export const firebaseAuth = getAuth(firebaseApp);
 if (Platform.OS === 'web') void setPersistence(firebaseAuth, browserLocalPersistence);
-export const firestore = getFirestore(firebaseApp);
+/**
+ * On Android/iOS the default streaming connection can stall silently in React Native
+ * (writes never confirm, so spinners never end). Long polling is Firebase's documented fix.
+ * initializeFirestore may only run once per app, so a fast refresh falls back to getFirestore.
+ */
+function createFirestore(): Firestore {
+  if (Platform.OS === 'web') return getFirestore(firebaseApp);
+  try {
+    return initializeFirestore(firebaseApp, { experimentalForceLongPolling: true });
+  } catch {
+    return getFirestore(firebaseApp);
+  }
+}
+export const firestore = createFirestore();
 export const firebaseStorage = getStorage(firebaseApp);

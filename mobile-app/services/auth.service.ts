@@ -38,10 +38,31 @@ export async function registerStudent(input: { displayName: string; email: strin
 
 export const resetPassword = (email: string) => sendPasswordResetEmail(firebaseAuth, email.trim().toLowerCase());
 
-export function subscribeToProfile(uid: string, onProfile: (profile: AppUser | null) => void, onError: (error: Error) => void) {
-  return onSnapshot(doc(firestore, 'users', uid), (snapshot) => {
+const APP_ROLES = ['admin', 'faculty', 'mount', 'student'];
+
+/**
+ * Live profile users/{uid}. `reason` explains a null profile.
+ * A "missing" answer that only comes from the local cache (server not reached yet) is ignored,
+ * so a slow connection is not mistaken for "not authorised".
+ */
+export function subscribeToProfile(uid: string, onProfile: (profile: AppUser | null, reason?: string) => void, onError: (error: Error) => void) {
+  let last = '';
+  return onSnapshot(doc(firestore, 'users', uid), { includeMetadataChanges: true }, (snapshot) => {
     const data = snapshot.data();
-    if (!snapshot.exists() || !data || !['admin', 'faculty', 'mount', 'student'].includes(data.role)) { onProfile(null); return; }
+    // Metadata-only updates (e.g. cache → server confirmation) repeat the same data: skip them.
+    const key = `${snapshot.exists()}:${JSON.stringify(data ?? null)}`;
+    if (key === last && !(snapshot.exists() === false && !snapshot.metadata.fromCache)) return;
+    if (!snapshot.exists() || !data) {
+      if (snapshot.metadata.fromCache) return; // wait for the server's answer
+      last = key;
+      onProfile(null, `No profile exists for this login (user ID ${uid}). Ask the administrator to add it in Admin → User Manager.`);
+      return;
+    }
+    last = key;
+    if (!APP_ROLES.includes(data.role)) {
+      onProfile(null, `This account's role is "${String(data.role ?? 'none')}", which this app does not support. In Admin → User Manager give it an instructor, recorder (mount) or student role.`);
+      return;
+    }
     onProfile({ ...data, uid, email: String(data.email ?? ''), displayName: String(data.displayName ?? data.email ?? 'User'), active: data.active !== false } as AppUser);
   }, onError);
 }
