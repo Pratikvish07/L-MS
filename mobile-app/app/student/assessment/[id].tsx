@@ -9,7 +9,7 @@ import { LoadingView } from '@/components/common/LoadingView';
 import { Card, Chip, StudentButton, StudentHeader, studentStyles as s } from '@/components/student/StudentUi';
 import { STUDENT_HOME, sColors, sRadius } from '@/constants/studentTheme';
 import { useStudentEnrollment } from '@/hooks/useStudent';
-import { notePreviewUrl } from '@/services/notes.service';
+import { filePreviewUrl } from '@/utils/file-preview';
 import {
   getPaper, submitAssessment, subscribeAssessment, subscribeMyMarks, subscribeMySubmission, uploadSubmissionFile,
   type AssessmentFile, type PaperQuestion, type StudentAssessment, type StudentMark, type Submission,
@@ -78,7 +78,7 @@ export default function StudentAssessmentScreen() {
       await submitAssessment(user, assessment, batchId, { files: [...(submission?.files ?? []), saved] });
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not upload the file.'); } finally { setProgress(null); }
   };
-  const open = (file: AssessmentFile) => Linking.openURL(notePreviewUrl(file)).catch(() => setError('Could not open the file.'));
+  const open = (file: AssessmentFile) => Linking.openURL(filePreviewUrl(file)).catch(() => setError('Could not open the file.'));
 
   if (quizOpen && paper) {
     const answered = answers.filter((a) => a >= 0).length;

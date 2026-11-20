@@ -33,9 +33,6 @@ export type RecordingStatus =
   | 'published'
   | 'failed';
 
-/** A lecture notes file (Word / PDF) in Firebase Storage. */
-export interface LectureNote { name: string; path: string; url: string; contentType: string; size: number; uploadedAt: string; uploadedBy: string; }
-
 export interface Recording {
   id: string;
   courseId: string;
@@ -43,7 +40,6 @@ export interface Recording {
   batchId: string;
   batchName: string;
   lectureNumber: string;
-  lectureNotes: LectureNote[];
   sessionId: string;
   facultyUid: string;
   mountUid: string;

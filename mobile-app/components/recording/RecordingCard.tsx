@@ -28,7 +28,6 @@ export function RecordingCard({ recording, onPress }: { recording: Recording; on
         <View style={styles.footer}>
           <Text style={styles.meta}>{formatDateTime(recording.recordedAt)}</Text>
           {recording.durationSeconds > 0 && <Text style={styles.meta}>· {formatDuration(recording.durationSeconds)}</Text>}
-          {recording.lectureNotes.length > 0 && <Text style={styles.meta}>· {recording.lectureNotes.length} notes</Text>}
         </View>
         <StatusBadge status={recording.status} progress={recording.uploadProgress} />
       </View>

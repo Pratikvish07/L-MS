@@ -1,6 +1,6 @@
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import type { AppUser } from '@/types/auth.types';
-import type { LectureMetadata, LectureNote, Recording, RecordingStatus } from '@/types/recording.types';
+import type { LectureMetadata, Recording, RecordingStatus } from '@/types/recording.types';
 import { toIso } from '@/utils/date';
 import { createSessionId } from '@/utils/id';
 import { firestore } from './firebase';
@@ -46,7 +46,6 @@ export function mapRecording(data: Row): Recording {
     uploadProgress: Number(data.uploadProgress ?? 0),
     errorMessage: String(data.errorMessage ?? ''),
     notes: String(data.notes ?? ''),
-    lectureNotes: Array.isArray(data.lectureNotes) ? (data.lectureNotes as LectureNote[]) : [],
     startedAt: toIso(data.startedAt),
     endedAt: toIso(data.endedAt),
     uploadedAt: toIso(data.uploadedAt),
@@ -59,7 +58,7 @@ export async function createRecordingSession(faculty: AppUser, mountUid: string,
   const sessionId = createSessionId();
   const metadata: LectureMetadata = { ...lecture, facultyId: faculty.facultyId || faculty.uid, facultyName: faculty.displayName };
   await setDoc(doc(firestore, 'recordings', sessionId), {
-    ...metadata, courseId: metadata.courseId || metadata.subjectId, courseName: metadata.courseName || metadata.subjectName, sessionId, lectureNotes: [], facultyUid: faculty.uid, mountUid,
+    ...metadata, courseId: metadata.courseId || metadata.subjectId, courseName: metadata.courseName || metadata.subjectName, sessionId, facultyUid: faculty.uid, mountUid,
     status: 'ready', publicationStatus: 'unpublished', uploadProgress: 0,
     durationSeconds: 0, fileSizeBytes: 0, partFileIds: [], createdAt: now(), updatedAt: now(),
   });

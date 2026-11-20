@@ -1,4 +1,4 @@
-import { Eye, FileText, Search } from 'lucide-react';
+import { Eye, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
@@ -64,22 +64,21 @@ export function LecturesPage() {
         </div>
         {loading ? <Spinner /> : (
           <div className="table-wrap"><table>
-            <thead><tr><th>Lecture</th><th>Course · Batch · Subject</th><th>Instructor</th><th>Notes</th><th>Video</th><th>Preview</th></tr></thead>
+            <thead><tr><th>Lecture</th><th>Course · Batch · Subject</th><th>Instructor</th><th>Video</th><th>Preview</th></tr></thead>
             <tbody>
               {groups.map(([day, rows]) => [
-                <tr key={`h-${day}`}><td colSpan={6} className="cell-sub" style={{ fontWeight: 700, background: 'var(--bg)' }}>{day === 'No date' ? day : formatDate(`${day}T12:00:00`)} · {rows.filter(isUploaded).length}/{rows.length} uploaded</td></tr>,
+                <tr key={`h-${day}`}><td colSpan={5} className="cell-sub" style={{ fontWeight: 700, background: 'var(--bg)' }}>{day === 'No date' ? day : formatDate(`${day}T12:00:00`)} · {rows.filter(isUploaded).length}/{rows.length} uploaded</td></tr>,
                 ...rows.map((r) => (
                   <tr key={r.id}>
                     <td><Link className="cell-title link" to={`/recordings/${r.id}`}>{r.lectureNumber ? `${r.lectureNumber}. ` : ''}{r.topic}</Link></td>
                     <td>{[r.courseName, r.batchName, r.subjectName].filter(Boolean).join(' · ') || r.className || '—'}</td>
                     <td>{r.facultyName || '—'}</td>
-                    <td>{r.lectureNotes.length ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><FileText size={14} aria-hidden /> {r.lectureNotes.length}</span> : '—'}</td>
                     <td>{isUploaded(r) ? <Pill tone="green">Uploaded</Pill> : r.status === 'failed' ? <Pill tone="red">Upload failed</Pill> : r.status === 'uploading' ? <Pill tone="blue">Uploading {r.uploadProgress}%</Pill> : <Pill tone="amber">Not uploaded</Pill>}</td>
-                    <td><button className="btn btn-outline btn-sm" disabled={!r.storagePath && !r.lectureNotes.length} title={!r.storagePath && !r.lectureNotes.length ? 'No video or notes yet' : undefined} onClick={() => setPreviewing(r)}><Eye size={14} /> Preview</button></td>
+                    <td><button className="btn btn-outline btn-sm" disabled={!r.storagePath} title={!r.storagePath ? 'No video yet' : undefined} onClick={() => setPreviewing(r)}><Eye size={14} /> Preview</button></td>
                   </tr>
                 )),
               ])}
-              {!visible.length && <tr><td className="empty" colSpan={6}>{recordings.length ? 'No lectures match these filters.' : 'No lectures yet. Instructors create them in the app.'}</td></tr>}
+              {!visible.length && <tr><td className="empty" colSpan={5}>{recordings.length ? 'No lectures match these filters.' : 'No lectures yet. Instructors create them in the app.'}</td></tr>}
             </tbody>
           </table></div>
         )}
@@ -89,24 +88,11 @@ export function LecturesPage() {
   );
 }
 
-/** PDFs render directly; Word files render through Microsoft's embeddable viewer. */
-const embedUrl = (note: Recording['lectureNotes'][number]) => (note.contentType === 'application/pdf' ? note.url : `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(note.url)}`);
-
 export function PreviewModal({ recording, onClose }: { recording: Recording; onClose: () => void }) {
-  const [tab, setTab] = useState<'video' | number>(recording.storagePath ? 'video' : 0);
-  const note = typeof tab === 'number' ? recording.lectureNotes[tab] : null;
   return (
     <Modal wide title={`${recording.lectureNumber ? `${recording.lectureNumber}. ` : ''}${recording.topic}`} onClose={onClose} footer={<><Link className="btn btn-outline" to={`/recordings/${recording.id}`}>Open lecture</Link><button className="btn" onClick={onClose}>Close</button></>}>
       <p className="cell-sub" style={{ marginTop: 0 }}>{[recording.courseName, recording.batchName, recording.subjectName, recording.facultyName].filter(Boolean).join(' · ')}</p>
-      <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'video'} className={tab === 'video' ? 'active' : ''} disabled={!recording.storagePath} onClick={() => setTab('video')}>Video{recording.storagePath ? '' : ' (not uploaded)'}</button>
-        {recording.lectureNotes.map((item, index) => <button key={item.path} role="tab" aria-selected={tab === index} className={tab === index ? 'active' : ''} onClick={() => setTab(index)}>{item.name}</button>)}
-      </div>
-      {tab === 'video' && recording.storagePath && <video key={recording.storagePath} className="preview-frame" controls preload="metadata" src={recording.storagePath} />}
-      {note && <>
-        <iframe key={note.path} className="preview-frame" title={note.name} src={embedUrl(note)} />
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}><a className="btn btn-outline btn-sm" href={note.url} target="_blank" rel="noreferrer" download={note.name}>Download</a><a className="btn btn-outline btn-sm" href={embedUrl(note)} target="_blank" rel="noreferrer">Open in new tab</a></div>
-      </>}
+      {recording.storagePath ? <video key={recording.storagePath} className="preview-frame" controls preload="metadata" src={recording.storagePath} /> : <p className="cell-sub">The video is not uploaded yet.</p>}
     </Modal>
   );
 }

@@ -36,18 +36,6 @@ export interface LectureMetadata {
   recordedAt: string;
 }
 
-/** A notes file (Word or PDF) stored next to its lecture in Firebase Storage. */
-export interface LectureNote {
-  name: string;
-  /** courses/{courseId}/batches/{batchId}/subjects/{subjectId}/lectures/{sessionId}/notes/{file} */
-  path: string;
-  url: string;
-  contentType: string;
-  size: number;
-  uploadedAt: string;
-  uploadedBy: string;
-}
-
 /** A lecture recording. ID = sessionId. */
 export interface Recording extends LectureMetadata {
   id: string;
@@ -68,8 +56,6 @@ export interface Recording extends LectureMetadata {
   errorMessage: string;
   /** Admin-only internal notes. */
   notes: string;
-  /** Lecture notes files shared with the batch. */
-  lectureNotes: LectureNote[];
   startedAt: string;
   endedAt: string;
   uploadedAt: string;

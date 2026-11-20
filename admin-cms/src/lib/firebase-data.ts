@@ -32,7 +32,7 @@ function toRecording(id: string, metadata: Row, video?: ApiVideo): Recording {
     id, sessionId: String(metadata.sessionId ?? (parsedSessionId || id)),
     courseId: String(metadata.courseId ?? ''), courseName: String(metadata.courseName ?? ''),
     batchId: String(metadata.batchId ?? ''), batchName: String(metadata.batchName ?? ''),
-    lectureNumber: String(metadata.lectureNumber ?? ''), lectureNotes: Array.isArray(metadata.lectureNotes) ? metadata.lectureNotes : [],
+    lectureNumber: String(metadata.lectureNumber ?? ''),
     facultyUid: String(metadata.facultyUid ?? ''), mountUid: String(metadata.mountUid ?? ''),
     classroomId: String(metadata.classroomId ?? ''), classroomName: String(metadata.classroomName ?? ''),
     facultyId: String(metadata.facultyId ?? ''), facultyName: String(metadata.facultyName ?? ''),

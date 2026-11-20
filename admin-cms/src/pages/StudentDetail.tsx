@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Clock, Eye, FileText, Mail, Phone, PlayCircle, Receipt, ShieldCheck, ShieldOff, TicketPercent } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Clock, Eye, Mail, Phone, PlayCircle, Receipt, ShieldCheck, ShieldOff, TicketPercent } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -51,7 +51,6 @@ export function StudentDetailPage() {
   const enrolledBatchIds = new Set(enrollments.map((item) => item.batchId));
   const available = recordings.filter((r) => enrolledBatchIds.has(r.batchId) && isVisibleToStudent(r));
   const watched = available.filter((r) => viewByRecording.has(r.id));
-  const notesCount = available.reduce((sum, r) => sum + r.lectureNotes.length, 0);
   const overall = percent(watched.length, available.length);
 
   return (
@@ -82,7 +81,6 @@ export function StudentDetailPage() {
         <div className="card"><BookOpen size={20} aria-hidden /><strong>{enrollments.length}</strong><span>Courses enrolled</span></div>
         <div className="card"><PlayCircle size={20} aria-hidden /><strong>{available.length}</strong><span>Lectures available</span></div>
         <div className="card"><Eye size={20} aria-hidden /><strong>{watched.length}</strong><span>Lectures watched</span></div>
-        <div className="card"><FileText size={20} aria-hidden /><strong>{notesCount}</strong><span>Notes available</span></div>
       </div>
 
       <section className="card card-pad" style={{ marginBottom: 18 }}>
@@ -116,7 +114,7 @@ function EnrollmentProgress({ enrollment, recordings, viewByRecording, onPreview
         </div>
       </div>
       <div className="table-wrap"><table>
-        <thead><tr><th>Subject</th><th>Lectures</th><th>Watched</th><th>Notes</th><th>Progress</th><th>Last watched</th></tr></thead>
+        <thead><tr><th>Subject</th><th>Lectures</th><th>Watched</th><th>Progress</th><th>Last watched</th></tr></thead>
         <tbody>
           {subjects.map(([subjectKey, subjectName]) => {
             const rows = lectures.filter((r) => (r.subjectId || r.subjectName) === subjectKey);
@@ -130,13 +128,12 @@ function EnrollmentProgress({ enrollment, recordings, viewByRecording, onPreview
                   <div className="chips">{rows.map((r) => <button key={r.id} className={`lecture-dot${viewByRecording.has(r.id) ? ' seen' : ''}`} title={`${r.lectureNumber ? `L${r.lectureNumber} ` : ''}${r.topic}${viewByRecording.has(r.id) ? ' (watched)' : ''}`} onClick={() => onPreview(r)}>{r.lectureNumber ? `L${r.lectureNumber}` : '•'}</button>)}</div>
                 </td>
                 <td>{seen.length} / {rows.length}</td>
-                <td>{rows.reduce((sum, r) => sum + r.lectureNotes.length, 0)}</td>
                 <td style={{ minWidth: 140 }}><div className="progress-track small"><span style={{ width: `${pct}%` }} /></div><span className="cell-sub">{pct}%</span></td>
                 <td>{last ? <span className="lecture-meta"><Clock size={13} aria-hidden /> {formatDateTime(last)}</span> : <span className="cell-sub">—</span>}</td>
               </tr>
             );
           })}
-          {!subjects.length && <tr><td className="empty" colSpan={6}>No published lectures for this batch yet.</td></tr>}
+          {!subjects.length && <tr><td className="empty" colSpan={5}>No published lectures for this batch yet.</td></tr>}
         </tbody>
       </table></div>
       {lectures.some((r) => viewByRecording.get(r.id)?.completed) && <p className="cell-sub" style={{ padding: '0 16px 12px', margin: 0 }}><CheckCircle2 size={13} aria-hidden /> Green lecture tags are watched; click any tag to preview that lecture.</p>}

@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarDays, CheckCircle2, CloudOff, FileText, Loader2, PlayCircle, Search, TriangleAlert, UserRound } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CheckCircle2, CloudOff, Loader2, PlayCircle, Search, TriangleAlert, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
@@ -55,7 +55,6 @@ export function BatchLecturesPage() {
   }, [visible, subjects]);
 
   const uploaded = lectures.filter(isUploaded).length;
-  const notes = lectures.reduce((sum, r) => sum + r.lectureNotes.length, 0);
   const count = (id: string) => lectures.filter((r) => r.subjectId === id).length;
 
   return (
@@ -68,7 +67,6 @@ export function BatchLecturesPage() {
         <div className="card"><PlayCircle size={20} aria-hidden /><strong>{lectures.length}</strong><span>Lectures</span></div>
         <div className="card"><CheckCircle2 size={20} aria-hidden /><strong>{uploaded}</strong><span>Videos uploaded</span></div>
         <div className="card"><CloudOff size={20} aria-hidden /><strong>{lectures.length - uploaded}</strong><span>Not uploaded</span></div>
-        <div className="card"><FileText size={20} aria-hidden /><strong>{notes}</strong><span>Notes files</span></div>
       </div>
 
       <section className="card card-pad">
@@ -100,7 +98,6 @@ export function BatchLecturesPage() {
                   </div>
                   <div className="lecture-foot">
                     <span className={`icon-chip${r.storagePath ? ' ok' : ''}`}><PlayCircle size={14} aria-hidden /> {r.storagePath ? 'Play video' : 'No video'}</span>
-                    <span className={`icon-chip${r.lectureNotes.length ? ' ok' : ''}`}><FileText size={14} aria-hidden /> {r.lectureNotes.length ? `${r.lectureNotes.length} notes` : 'No notes'}</span>
                   </div>
                 </button>
               ))}

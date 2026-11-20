@@ -8,7 +8,6 @@ import { ErrorBanner } from '@/components/common/ErrorBanner';
 import { LoadingView } from '@/components/common/LoadingView';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { LectureNotesCard } from '@/components/recording/LectureNotesCard';
 import { RecordingTimer } from '@/components/recording/RecordingTimer';
 import { UploadProgress } from '@/components/recording/UploadProgress';
 import { colors, radius } from '@/constants/theme';
@@ -71,14 +70,13 @@ export default function RecordingDetailsScreen() {
   const mountReady = true;
   const mountPaused = isMine && mount?.sessionId === recording.id && mount.state === 'paused';
 
+  // Lectures created while a recorder phone was connected are recorded BY that phone:
+  // Start / Stop / Retry are sent to it. Without a recorder, this phone records itself.
+  const onRecorder = Boolean(pairing && recording.mountUid && recording.mountUid === pairing.mountUid);
   const send = async (type: CommandType) => {
-    if (!pairing) return;
-    if (type === 'retry_upload') {
-      router.push({ pathname: '/faculty-upload' as any, params: { sessionId: recording.id } });
-      return;
-    }
-    if (type === 'start') {
-      router.push({ pathname: '/faculty-camera' as any, params: { sessionId: recording.id, autoStart: '1' } });
+    if (!onRecorder || !pairing) {
+      if (type === 'retry_upload') router.push({ pathname: '/faculty-upload' as any, params: { sessionId: recording.id } });
+      else router.push({ pathname: '/faculty-camera' as any, params: { sessionId: recording.id, autoStart: type === 'start' ? '1' : '0' } });
       return;
     }
     if (type === 'stop') {
@@ -124,7 +122,7 @@ export default function RecordingDetailsScreen() {
           {recording.status === 'ready' && (
             <>
               <Text style={styles.help}>
-                Ready. Press Start to begin recording; press Stop when the class ends.
+                {onRecorder ? `Ready. Start makes ${pairing?.deviceName || 'the classroom recorder'} record; Stop ends and saves the lecture.` : 'No recorder connected, so this phone will record. Press Start to open the camera.'}
               </Text>
               <AppButton
                 title={awaitingAck ? 'Waiting for mount phone…' : 'Start Recording'}
@@ -187,10 +185,9 @@ export default function RecordingDetailsScreen() {
           {noResponse && (
             <ErrorBanner message="The mount phone did not acknowledge the last command. Check that it is online, then try again." />
           )}
+          {onRecorder && !online && recording.status === 'ready' && <ErrorBanner message="The classroom recorder looks offline. Check that its app is open on the camera screen, then press Start." />}
           {actionError && <ErrorBanner message={actionError} />}
         </View>
-
-        <LectureNotesCard recording={recording} uploadedBy={user.uid} />
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Details</Text>
@@ -207,7 +204,7 @@ export default function RecordingDetailsScreen() {
             value={recording.durationSeconds ? formatDuration(recording.durationSeconds) : ''}
           />
           <DetailRow icon="document-outline" label="File size" value={recording.fileSizeBytes ? formatBytes(recording.fileSizeBytes, 1) : ''} />
-          <DetailRow icon="phone-portrait-outline" label="Recording device" value="Faculty device" />
+          <DetailRow icon="phone-portrait-outline" label="Recording device" value={onRecorder ? pairing?.deviceName || 'Classroom recorder' : 'This phone'} />
         </View>
       </ScrollView>
     </View>

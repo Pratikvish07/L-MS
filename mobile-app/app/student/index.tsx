@@ -44,7 +44,6 @@ export default function StudentHome() {
   const viewed = useMemo(() => new Set(views.map((v) => v.recordingId)), [views]);
   const watched = recordings.filter((r) => viewed.has(r.id)).length;
   const progress = recordings.length ? (watched / recordings.length) * 100 : 0;
-  const notes = recordings.reduce((n, r) => n + r.lectureNotes.length, 0);
   const submitted = new Set(submissions.map((x) => x.assessmentId));
   const upcoming = assessments.filter((a) => !submitted.has(a.id) && (!a.date || a.date >= todayKey())).sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999')).slice(0, 3);
   const marked = marks.filter((m) => m.marks !== null);
@@ -84,7 +83,7 @@ export default function StudentHome() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <View style={{ flex: 1, gap: 6 }}>
               <Text style={styles.heroTitle}>Keep Learning,{'\n'}Keep Growing!</Text>
-              <Text style={styles.heroMeta}>{current ? `${recordings.length} Lectures • ${assessments.length} Tests • ${notes} Notes` : 'Explore courses to get started'}</Text>
+              <Text style={styles.heroMeta}>{current ? `${recordings.length} Lectures • ${assessments.length} Tests & Assignments` : 'Explore courses to get started'}</Text>
               <Pressable accessibilityRole="button" onPress={() => (next ? play(next) : go(current ? '/student/my-course' : '/student/courses'))} style={styles.heroBtn}>
                 <Text style={styles.heroBtnText}>{current ? (next ? 'Continue learning' : 'Open my course') : 'Explore courses'}</Text>
                 <Ionicons name="arrow-forward" size={15} color={sColors.primary} />

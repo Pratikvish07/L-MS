@@ -243,7 +243,6 @@ export function RecordingDetailPage() {
           <div className="card card-pad">
             <VideoPlayer recording={recording} />
           </div>
-          <LectureNotesPanel recording={recording} />
         </div>
 
         <div className="card card-pad">
@@ -353,20 +352,3 @@ export function RecordingDetailPage() {
   );
 }
 
-/** Notes the instructor attached (Word / PDF). Word opens in Microsoft's online viewer. */
-function LectureNotesPanel({ recording }: { recording: Recording }) {
-  const previewUrl = (note: Recording['lectureNotes'][number]) => (note.contentType === 'application/pdf' ? note.url : `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(note.url)}`);
-  return (
-    <div className="card card-pad">
-      <h2 style={{ margin: '0 0 10px', fontSize: 15 }}>Lecture notes</h2>
-      {[recording.courseName, recording.batchName, recording.subjectName].some(Boolean) && <p className="cell-sub" style={{ marginTop: 0 }}>{[recording.courseName, recording.batchName, recording.subjectName].filter(Boolean).join(' · ')}</p>}
-      {recording.lectureNotes.length ? recording.lectureNotes.map((note) => (
-        <div key={note.path} className="list-item" style={{ padding: '10px 0' }}>
-          <div className="grow"><div className="title">{note.name}</div><div className="cell-sub">{formatBytes(note.size)} · {formatDateTime(note.uploadedAt)}</div></div>
-          <a className="btn btn-outline btn-sm" href={previewUrl(note)} target="_blank" rel="noreferrer">Preview</a>
-          <a className="btn btn-outline btn-sm" href={note.url} target="_blank" rel="noreferrer" download={note.name}>Download</a>
-        </div>
-      )) : <p className="cell-sub" style={{ margin: 0 }}>No notes attached to this lecture.</p>}
-    </div>
-  );
-}

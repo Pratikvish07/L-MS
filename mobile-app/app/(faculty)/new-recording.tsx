@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/common/AppButton';
@@ -11,15 +10,13 @@ import { ErrorBanner } from '@/components/common/ErrorBanner';
 import { LoadingView } from '@/components/common/LoadingView';
 import { SelectField } from '@/components/common/SelectField';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { colors, radius } from '@/constants/theme';
+import { colors } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useAuth';
 import { useCatalog } from '@/hooks/useCatalog';
 import { useFacultyPairing } from '@/hooks/usePairing';
-import { pickNotesFile, uploadLectureNote, type PickedNote } from '@/services/notes.service';
 import { assignSession } from '@/services/pairing.service';
 import { createRecordingSession } from '@/services/recording.service';
 import type { Batch, Subject } from '@/types/catalog.types';
-import { formatBytes } from '@/utils/file-size';
 import { goBack } from '@/utils/navigation';
 
 /** Who teaches `subject` in `batch`: the batch override, else the course default (older data: facultyUids). */
@@ -44,11 +41,9 @@ export default function NewRecordingScreen() {
   const [topic, setTopic] = useState('');
   const [lectureNumber, setLectureNumber] = useState('');
   const [recordedAt, setRecordedAt] = useState(() => new Date().toISOString());
-  const [note, setNote] = useState<PickedNote | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [noteProgress, setNoteProgress] = useState<number | null>(null);
 
   // Every (batch, subject) this instructor teaches. If nothing is assigned yet, everything is offered.
   const { pairs, assigned } = useMemo(() => {
@@ -85,14 +80,6 @@ export default function NewRecordingScreen() {
   const lockedRoomId = pairing?.mountStatus?.classroomId || '';
   const lockedRoomName = pairing?.mountStatus?.classroomName || '';
 
-  const chooseNote = async () => {
-    setSubmitError(null);
-    try { const picked = await pickNotesFile(); if (picked) setNote(picked); } catch (cause) { setSubmitError(cause instanceof Error ? cause.message : String(cause)); }
-  };
-  const previewLocal = async () => {
-    if (!note) return;
-    try { await Linking.openURL(note.uri); } catch { setSubmitError('This phone cannot preview the file before it is saved. Save the lecture, then use Preview on the lecture page.'); }
-  };
 
   const handleNext = async () => {
     const next: Errors = {};
@@ -127,16 +114,10 @@ export default function NewRecordingScreen() {
         recordedAt,
       });
       if (pairing?.mountUid) await assignSession(pairing.mountUid, { sessionId, metadata });
-      if (note) {
-        setNoteProgress(0);
-        try { await uploadLectureNote({ courseId, batchId, subjectId }, sessionId, note, user.uid, setNoteProgress); }
-        catch (cause) { console.warn('Notes upload failed', cause); }
-      }
       router.replace({ pathname: '/recording-details/[id]', params: { id: sessionId } });
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Could not create the lecture.');
       setSubmitting(false);
-      setNoteProgress(null);
     }
   };
 
@@ -160,22 +141,6 @@ export default function NewRecordingScreen() {
             <AppInput label="Lecture number" icon="list-outline" placeholder="e.g. 1" value={lectureNumber} onChangeText={setLectureNumber} keyboardType="numeric" />
             <DateTimeField label="Lecture date" value={recordedAt} onChange={setRecordedAt} error={errors.recordedAt} />
 
-            <View style={styles.notes}>
-              <Text style={styles.label}>Notes (Word or PDF, optional)</Text>
-              {note ? (
-                <View style={styles.noteRow}>
-                  <Ionicons name={note.mimeType === 'application/pdf' ? 'document-text-outline' : 'document-outline'} size={22} color={colors.primary} />
-                  <View style={{ flex: 1 }}>
-                    <Text numberOfLines={1} style={styles.noteName}>{note.name}</Text>
-                    <Text style={styles.noteMeta}>{formatBytes(note.size)}{noteProgress !== null ? ` · uploading ${Math.round(noteProgress * 100)}%` : ''}</Text>
-                  </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Preview notes" onPress={() => void previewLocal()} style={styles.noteBtn}><Text style={styles.noteBtnText}>Preview</Text></Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Remove notes" onPress={() => setNote(null)} hitSlop={8}><Ionicons name="close" size={20} color={colors.textMuted} /></Pressable>
-                </View>
-              ) : (
-                <AppButton title="Attach notes" icon="attach" variant="secondary" onPress={() => void chooseNote()} />
-              )}
-            </View>
 
             {submitError && <ErrorBanner message={submitError} />}
             <Text style={styles.hint}>Next opens the lecture, where you start and stop the recording.</Text>
@@ -193,12 +158,5 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.surface },
   content: { padding: 16, gap: 16 },
   hint: { fontSize: 12, color: colors.textMuted, textAlign: 'center' },
-  label: { fontSize: 13, fontWeight: '600', color: colors.text },
-  notes: { gap: 8 },
-  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background },
-  noteName: { fontSize: 14, fontWeight: '600', color: colors.text },
-  noteMeta: { fontSize: 12, color: colors.textMuted },
-  noteBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.md, backgroundColor: colors.primarySoft },
-  noteBtnText: { fontSize: 13, fontWeight: '600', color: colors.primary },
   footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
 });

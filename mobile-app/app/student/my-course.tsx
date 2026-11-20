@@ -9,7 +9,6 @@ import { LoadingView } from '@/components/common/LoadingView';
 import { Card, Chip, EmptyState, FilterChips, IconCircle, LecturePlayer, ProgressBar, StudentButton, studentStyles as s, type IconName } from '@/components/student/StudentUi';
 import { accents, sColors, sRadius } from '@/constants/studentTheme';
 import { useStudentEnrollment } from '@/hooks/useStudent';
-import { previewNote } from '@/services/notes.service';
 import { subscribeToClassRecordings } from '@/services/recording.service';
 import { markLectureViewed, subscribeCourseSubjects, subscribeMyViews, type LectureViewRow, type StudentSubject } from '@/services/student.service';
 import type { Recording } from '@/types/recording.types';
@@ -108,13 +107,6 @@ export default function MyCourseScreen() {
                   </View>
                   <Ionicons name="play-circle" size={34} color={sColors.primary} />
                 </Pressable>
-                {r.lectureNotes.map((note) => (
-                  <Pressable key={note.path} accessibilityRole="button" accessibilityLabel={`Open notes ${note.name}`} onPress={() => void previewNote(note).catch(() => setError('Could not open the notes on this device.'))} style={styles.note}>
-                    <Ionicons name="document-text" size={16} color={sColors.primary} />
-                    <Text style={styles.noteText} numberOfLines={1}>{note.name}</Text>
-                    <Text style={styles.noteOpen}>Open</Text>
-                  </Pressable>
-                ))}
               </Card>
             );
           })}
@@ -146,7 +138,7 @@ export default function MyCourseScreen() {
                   <View style={{ flex: 1 }}><ProgressBar percent={c.percent} color={c.accent.fg} /></View>
                   <Text style={[styles.pctSmall, { color: c.accent.fg }]}>{Math.round(c.percent)}%</Text>
                 </View>
-                <Text style={s.meta}>{c.done}/{c.lectures.length} lectures · {c.lectures.reduce((n, r) => n + r.lectureNotes.length, 0)} notes</Text>
+                <Text style={s.meta}>{c.done}/{c.lectures.length} lectures</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={sColors.muted} />
             </Card>
@@ -167,7 +159,4 @@ const styles = StyleSheet.create({
   pctSmall: { fontSize: 12, fontWeight: '800', minWidth: 34, textAlign: 'right' },
   lectureNo: { width: 46, height: 46, borderRadius: sRadius.sm, backgroundColor: sColors.soft, alignItems: 'center', justifyContent: 'center' },
   lectureNoText: { color: sColors.primary, fontWeight: '800', fontSize: 13 },
-  note: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9, paddingHorizontal: 12, borderRadius: sRadius.sm, backgroundColor: sColors.softer },
-  noteText: { flex: 1, color: sColors.text, fontSize: 13 },
-  noteOpen: { color: sColors.primary, fontSize: 13, fontWeight: '800' },
 });

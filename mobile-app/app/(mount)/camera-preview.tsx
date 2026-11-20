@@ -19,7 +19,7 @@ import { useCurrentUser } from '@/hooks/useAuth';
 import { useControlCode } from '@/hooks/useControlCode';
 import { useScreenAwake } from '@/hooks/useScreenAwake';
 import { availableBytes, persistRecording, persistThumbnail } from '@/services/local-recordings.service';
-import { markRecordingAborted, markRecordingStarted, markSavedLocally } from '@/services/recording.service';
+import { markRecordingAborted, markRecordingStarted, markSavedLocally, subscribeToRecording } from '@/services/recording.service';
 import type { ActiveSession } from '@/types/pairing.types';
 import { estimateRecordingMinutes, formatBytes } from '@/utils/file-size';
 
@@ -74,7 +74,7 @@ export default function CameraPreviewScreen() {
   useScreenAwake();
   const insets = useSafeAreaInsets();
   const user = useCurrentUser();
-  const { autoStart } = useLocalSearchParams<{ autoStart?: string }>();
+  const { autoStart, sessionId: sessionParam } = useLocalSearchParams<{ autoStart?: string; sessionId?: string }>();
   const { pairing, connected, deviceName, setLocalState, registerCommandHandler, releaseSession } = useMount();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
@@ -114,7 +114,14 @@ export default function CameraPreviewScreen() {
   const timingRef = useRef({ startedAt: 0, pausedMs: 0, pausedSince: null as number | null });
   const thumbnailRef = useRef<string | null>(null);
 
-  const session = pairing?.session ?? null;
+  // Recorder phone: the lecture comes from its pairing (set by the instructor).
+  // Instructor recording on their own phone: the lecture comes from the session in the URL.
+  const [ownSession, setOwnSession] = useState<ActiveSession | null>(null);
+  useEffect(() => {
+    if (isMount || !sessionParam) return;
+    return subscribeToRecording(sessionParam, (recording) => setOwnSession(recording ? { sessionId: recording.id, metadata: recording } : null), (e) => setError(e.message));
+  }, [isMount, sessionParam]);
+  const session = isMount ? pairing?.session ?? null : ownSession ?? pairing?.session ?? null;
   const shownSession = activeRef.current?.session ?? session;
   const canPause = cameraReady && !!cameraRef.current?.getSupportedFeatures?.().toggleRecordingAsyncAvailable;
 
@@ -183,7 +190,7 @@ export default function CameraPreviewScreen() {
   const startRecording = async (): Promise<CommandResult> => {
     if (phaseRef.current !== 'preview') return { ok: false, message: 'Already recording.' };
     if (!cameraReady || !cameraRef.current) return { ok: false, message: 'Camera is not ready yet.' };
-    if (!session || !pairing) return { ok: false, message: 'No lecture details received from the faculty phone.' };
+    if (!session || (isMount && !pairing)) return { ok: false, message: 'No lecture details received from the instructor phone.' };
     if (!micPermission?.granted) return { ok: false, message: 'Microphone permission is not granted on the mount phone.' };
     const free = availableBytes();
     if (free < MIN_FREE_BYTES) {
@@ -191,7 +198,7 @@ export default function CameraPreviewScreen() {
     }
 
     setError(null);
-    activeRef.current = { session, facultyUid: pairing.facultyUid };
+    activeRef.current = { session, facultyUid: pairing?.facultyUid ?? user.uid };
     const now = Date.now();
     timingRef.current = { startedAt: now, pausedMs: 0, pausedSince: null };
     setStartedAt(now);
@@ -419,7 +426,7 @@ export default function CameraPreviewScreen() {
             <Text style={styles.hint}>
               {session
                 ? 'Only the faculty phone can start and stop recording'
-                : `Waiting for lecture details from ${pairing?.facultyName || 'the faculty phone'}…`}
+                : isMount ? `Waiting for lecture details from ${pairing?.facultyName || 'the instructor phone'}…` : 'Loading the lecture…'}
             </Text>
           </>
         )}
